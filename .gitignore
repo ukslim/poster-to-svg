@@ -1,0 +1,5 @@
+# Font cache and index, downloaded and built on demand
+fonts/
+__pycache__/
+*.pyc
+.DS_Store
