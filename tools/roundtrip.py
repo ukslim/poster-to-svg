@@ -28,6 +28,8 @@ and every stage is graded against what was drawn:
   case      capitals where capitals were drawn, and not where they were not
   track     letter-spacing set where it was drawn, and not where it was not
   split     a wrapped line breaks at the words the original broke at
+  blank     under each line, the SVG's artwork layer matches the true artwork
+            (drawn separately, without type): no ghost, no damage
   audit     audit.py's leads on the result: alignment, ghosts, damage
 
 It cannot imitate a generator's drifting letterforms, so passing here is
@@ -81,6 +83,15 @@ def top_cap(rec, text):
 
 
 # ----------------------------------------------------------------- drawing
+class Both:
+    """Draw artwork on the poster and on the text-free artwork layer alike."""
+    def __init__(self, *draws):
+        self.draws = draws
+
+    def __getattr__(self, name):
+        return lambda *a, **k: [getattr(d, name)(*a, **k) for d in self.draws]
+
+
 class Page:
     def __init__(self, rng):
         self.rng = rng
@@ -89,6 +100,11 @@ class Page:
         self.ink = rng.choice([(24, 24, 24), (30, 40, 70), (60, 30, 30), (20, 60, 50)])
         self.im = Image.new('RGB', (W, H), self.paper)
         self.dr = ImageDraw.Draw(self.im)
+        # The artwork alone, drawn in step with the poster but never with any
+        # type: the answer to "what is behind the letters", which no real
+        # poster can give. Graded against the SVG's own artwork layer.
+        self.art_im = Image.new('RGB', (W, H), self.paper)
+        self.art = Both(self.dr, ImageDraw.Draw(self.art_im))
         self.truth = {}
 
     @staticmethod
@@ -120,7 +136,7 @@ class Page:
             if bullet:
                 r = max(2, cap // 5)
                 cx = x + bb[0] - cap * 0.6
-                self.dr.ellipse([cx - r, b - cap / 2 - r, cx + r, b - cap / 2 + r], fill=colour)
+                self.art.ellipse([cx - r, b - cap / 2 - r, cx + r, b - cap / 2 + r], fill=colour)
             if track:
                 for i, ch in enumerate(part):
                     self.dr.text((x + fnt.getlength(part[:i]) + i * track, b), ch,
@@ -150,11 +166,16 @@ def draw_gig(rng, copy, d, t, it):
     # artwork: a circle, off to the side the text is not ranged against
     r = rng.randint(120, 200)
     cx = W - r // 3 if align != 'right' else r // 3
-    P.dr.ellipse([cx - r, 720 - r, cx + r, 720 + r],
+    P.art.ellipse([cx - r, 720 - r, cx + r, 720 + r],
                  fill=rng.choice([(230, 180, 40), (220, 90, 60), (90, 150, 90)]))
     track = rng.choice([0.0, 0.0, 0.3])
     P.line('presenter', maybe_upper(rng, txt['presenter'], 0.6 if track else 0.0),
            t, 22, 90, x0, x1, align, track_em=track)
+    if rng.random() < 0.5:
+        # a shape the headline crosses (act_up's pink triangle): the type must
+        # come out of it without leaving wedges or eating its edge
+        tri = rng.choice([(230, 120, 160), (240, 190, 60), (120, 170, 210)])
+        P.art.polygon([(W * 0.55, 150), (W - 20, 150), (W * 0.78, 520)], fill=tri)
     head = txt['headliner']
     words = head.split(' ')
     parts = [' '.join(words[:len(words) // 2]), ' '.join(words[len(words) // 2:])]
@@ -162,7 +183,7 @@ def draw_gig(rng, copy, d, t, it):
     y = P.line('headliner', head, d, cap, 140 + cap, x0, x1, align, parts=parts)
     P.line('support', maybe_upper(rng, txt['support'], 0.25), t, 32, y + 10, x0, x1, align)
     # the date and venue reversed out of a panel
-    P.dr.rectangle([0, 1170, W, 1335], fill=rng.choice([(20, 110, 110), (170, 40, 40),
+    P.art.rectangle([0, 1170, W, 1335], fill=rng.choice([(20, 110, 110), (170, 40, 40),
                                                         (30, 50, 110)]))
     light = (250, 248, 240)
     P.line('date', maybe_upper(rng, txt['date'], 0.3), t, 40, 1240, x0, x1, align,
@@ -197,10 +218,10 @@ def draw_fete(rng, copy, d, t, it):
     ben_face = it if (it and rng.random() < 0.7) else t
     y = P.line('beneficiary', txt['beneficiary'], ben_face, 22, y + 10, x0, x1, align)
     # an artwork band between the header and the list, a hole cut in it
-    P.dr.rectangle([0, y + 20, W, y + 260],
+    P.art.rectangle([0, y + 20, W, y + 260],
                    fill=rng.choice([(230, 180, 40), (220, 90, 60), (90, 150, 90), (60, 110, 170)]))
     r = 80
-    P.dr.ellipse([W // 2 - r, y + 140 - r, W // 2 + r, y + 140 + r], fill=P.paper)
+    P.art.ellipse([W // 2 - r, y + 140 - r, W // 2 + r, y + 140 + r], fill=P.paper)
     y += 330
     list_align = 'left' if align == 'left' else 'centre'
     label_track = rng.choice([0.0, 0.25])
@@ -233,7 +254,7 @@ def draw_fete(rng, copy, d, t, it):
     else:
         mid = W // 2
         if rng.random() < 0.5:           # a rule between the columns
-            P.dr.line([mid, y - 10, mid, y + 4 * step], fill=P.ink, width=2)
+            P.art.line([mid, y - 10, mid, y + 4 * step], fill=P.ink, width=2)
         for i, item in enumerate(items):
             col, row = divmod(i, 4)
             cx0, cx1 = (x0, mid - 24) if col == 0 else (mid + 24, x1)
@@ -283,10 +304,10 @@ def svg_texts(svg):
     return out
 
 
-def grade(sol, svg_path, truth, workdir):
+def grade(sol, svg_path, truth, workdir, art=None):
     L = sol['lines']
     got = {a['key']: [L[b] for b in a['bands']] for a in sol['assigned']}
-    card = {k: [0, 0] for k in ('assign', 'face', 'size', 'case', 'track', 'split')}
+    card = {k: [0, 0] for k in ('assign', 'face', 'size', 'case', 'track', 'split', 'blank')}
     notes = []
 
     # assign: every drawn line on the band it was drawn in
@@ -379,6 +400,37 @@ def grade(sol, svg_path, truth, workdir):
             notes.append(f"split: {key} drawn {' / '.join(tr['parts'])!r}, set "
                          f"{' / '.join(got)!r}")
 
+    # blank: under each line, the SVG's artwork layer (its text stripped) is
+    # the true artwork -- no ghost of the original type, no damage to what
+    # was behind it
+    if art is not None:
+        from audit import render, strip_text
+        import numpy as np
+        from scipy import ndimage
+        shipped_art = render(strip_text(open(svg_path).read()), workdir, 'artonly', W, H)
+        truth_art = np.array(art[1]).astype(int)
+        drawn = np.array(art[0]).astype(int)
+        # where type was drawn: the poster differs from its own artwork layer
+        typed = ndimage.binary_dilation(np.abs(drawn - truth_art).max(2) > 30, iterations=2)
+        for key, tr in truth.items():
+            card['blank'][1] += 1
+            bad = 0.0
+            for bx in tr['boxes']:
+                pad = max(2, int(0.2 * tr['cap']))
+                x0, y0 = max(0, bx[0] - pad), max(0, bx[1] - pad)
+                x1, y1 = min(W, bx[2] + pad), min(H, bx[3] + pad)
+                t = typed[y0:y1, x0:x1]
+                if not t.any():
+                    continue
+                d = np.abs(shipped_art[y0:y1, x0:x1] - truth_art[y0:y1, x0:x1]).max(2)
+                # faint differences count: a ghost is a pale letter, not a dark one
+                bad = max(bad, float((d[t] > 35).mean()))
+            if bad < 0.03:
+                card['blank'][0] += 1
+            else:
+                notes.append(f'blank: {key} {bad:.0%} of the type area differs from the '
+                             f'true artwork (ghost or damage)')
+
     # audit leads on the result
     from audit import audit
     leads = audit(svg_path, sol, workdir)
@@ -433,19 +485,19 @@ def one(job):
         return seed, head, None, [f'not built: {last[0][:160]}']
     sol = json.load(open(soln))
     with tempfile.TemporaryDirectory() as wd:
-        card, notes = grade(sol, svg, P.truth, wd)
+        card, notes = grade(sol, svg, P.truth, wd, (P.im, P.art_im))
     return seed, head, card, notes
 
 
 def totals(results):
-    tot = {k: [0, 0] for k in ('assign', 'face', 'size', 'case', 'track', 'split')}
+    tot = {k: [0, 0] for k in ('assign', 'face', 'size', 'case', 'track', 'split', 'blank')}
     tot['audit'] = {}
     built = 0
     for _, _, card, _ in results:
         if not card:
             continue
         built += 1
-        for k in ('assign', 'face', 'size', 'case', 'track', 'split'):
+        for k in ('assign', 'face', 'size', 'case', 'track', 'split', 'blank'):
             tot[k][0] += card[k][0]
             tot[k][1] += card[k][1]
         for k, v in card['audit'].items():
@@ -456,7 +508,7 @@ def totals(results):
 
 def show(tot):
     parts = [f"built {tot['built'][0]}/{tot['built'][1]}"]
-    parts += [f'{k} {tot[k][0]}/{tot[k][1]}' for k in ('assign', 'face', 'size', 'case', 'track', 'split')
+    parts += [f'{k} {tot[k][0]}/{tot[k][1]}' for k in ('assign', 'face', 'size', 'case', 'track', 'split', 'blank')
               if k in tot]
     au = ', '.join(f'{k} {v}' for k, v in tot['audit'].items() if v) or 'none'
     return '  '.join(parts) + f'   audit leads: {au}'

@@ -376,22 +376,65 @@ def embed(im, x0, y0, workdir, quality=76, label='artwork'):
             f'         xlink:href="{data_uri(out)}"/>')
 
 
-def inpaint(arr, hole, reach=25):
-    """Fill `hole` with the colour of the nearest surviving pixel.
+def _classes(px, tol=40, min_share=0.05):
+    """Cluster colours into the few flat regions round a hole. -> centres."""
+    q = (px // 32).astype(int)
+    keys = q[:, 0] * 10000 + q[:, 1] * 100 + q[:, 2]
+    vals, counts = np.unique(keys, return_counts=True)
+    centres = []
+    for v in vals[np.argsort(-counts)]:
+        c = np.median(px[keys == v], 0)
+        if (keys == v).sum() < min_share * len(px):
+            break
+        if all(np.abs(c - d).max() > tol for d in centres):
+            centres.append(c)
+    return centres
 
-    Painting a single flat colour over the type is wrong twice over: type set
-    on a coloured panel gets blanked to the paper colour, and type on a
-    distressed ground leaves a conspicuously smooth patch. Taking each blanked
-    pixel from its nearest neighbour keeps a panel's colour and an aged
-    ground's tone, and -- unlike averaging the surroundings -- it does not
-    blend across an edge.
 
-    That last part is the whole point. These posters are built from flat
-    shapes meeting at hard boundaries, and a headline routinely sits right up
-    against one: bauhaus_modernist's fete knocks a cream rectangle out of a red
-    circle and sets the title inside it. Averaging pulls cream and red into
-    every hole that straddles the boundary, and the clean vertical edge comes
-    back as a feathered red smear. Nearest-neighbour keeps it an edge.
+def _fit_sides(pts, labels, k, hole_pts):
+    """Which class each hole point belongs to, from a straight-line one-vs-rest
+    logistic fit to the classes of the surviving pixels round it. Straight,
+    because it is fitted in small tiles: a corner is two tiles' lines."""
+    def feats(p):
+        return np.stack([np.ones(len(p)), p[:, 1], p[:, 0]], 1)
+    mu = pts.mean(0)
+    sc = max(1.0, float(np.abs(pts - mu).max()))
+    F, G = feats((pts - mu) / sc), feats((hole_pts - mu) / sc)
+    scores = []
+    with np.errstate(all='ignore'):            # Accelerate's spurious matmul warnings
+        for c in range(k):
+            t = (labels == c).astype(float)
+            w = np.zeros(3)
+            for _ in range(12):                   # IRLS, lightly regularised
+                z = np.clip(F @ w, -30, 30)
+                p = 1 / (1 + np.exp(-z))
+                r = p * (1 - p) + 1e-6
+                A = F.T @ (F * r[:, None]) + 1e-3 * np.eye(3)
+                w = w + np.linalg.solve(A, F.T @ (t - p))
+            scores.append(G @ w)
+    return np.argmax(np.stack(scores, 1), 1)
+
+
+def inpaint(arr, hole, tile=24):
+    """Fill `hole` (the blanked type) from the artwork round it, keeping edges.
+
+    Painting a flat colour over the type is wrong twice over: type on a
+    coloured panel is blanked to the paper colour, and type on a distressed
+    ground leaves a smooth patch. So the fill comes from the surviving pixels
+    -- but which ones matters where a letter crosses an edge between two flat
+    colours. Taking each pixel from its NEAREST survivor makes the boundary
+    run down the middle of the stroke: the round trip, which knows the true
+    artwork, showed a triangle's straight edge coming back scalloped wherever
+    a headline crossed it (act_up's "wedges of the pink triangle").
+
+    So, tile by tile (about a stroke across): sort the surviving pixels round
+    the tile into their flat colours -- sampled a couple of pixels clear of
+    the hole, where antialiasing has not blended them -- fit the straight
+    boundary between them, and give each blanked pixel the class on its side;
+    its colour then comes from the nearest survivor OF THAT CLASS, which
+    carries texture and gradients without crossing the edge. Small tiles make
+    straight lines enough: a corner is two tiles. One colour round a tile is
+    the plain case, nearest survivor, as before.
 
     It still cannot invent structure. Over a photograph the fill is a smear of
     stretched neighbours, which is why type on imagery is a skip rather than a
@@ -400,23 +443,50 @@ def inpaint(arr, hole, reach=25):
     from scipy import ndimage
     if not hole.any():
         return arr.copy()
-    # EDT measures distance to the nearest zero, so with the hole as the
-    # foreground the indices it returns point at the nearest KNOWN pixel.
-    idx = ndimage.distance_transform_edt(hole, return_distances=False,
-                                         return_indices=True)
     out = arr.copy()
-    for c in range(arr.shape[2]):
-        out[:, :, c] = arr[:, :, c][tuple(idx)]
-    # Nearest-neighbour alone leaves the boundary ragged: along an edge, some
-    # blanked pixels are nearer the colour on one side and some the other, so
-    # a straight edge comes back with teeth the width of the blanking. A
-    # median pass over the filled pixels only takes those out -- a median
-    # keeps an edge sharp and removes exactly this kind of protrusion -- while
-    # leaving every pixel that survived untouched.
-    for _ in range(2):
-        med = ndimage.median_filter(out, size=(9, 9, 1))
-        for c in range(arr.shape[2]):
-            out[:, :, c][hole] = med[:, :, c][hole]
+    # Survivors a few px clear of the hole: right beside a letter the pixels
+    # are its antialiasing and compression ringing, and copying them leaves a
+    # pale ghost of the letter on plain paper.
+    clear = ndimage.distance_transform_edt(~hole) >= 3
+    idx = ndimage.distance_transform_edt(~clear, return_distances=False,
+                                         return_indices=True)
+    fill_from = hole | (~clear & ~hole)            # the hole and its rim
+    out[fill_from] = arr[tuple(idx)][fill_from]    # the plain fill, everywhere
+    H, W = hole.shape
+    hy_all, hx_all = np.nonzero(hole)
+    tiles = {}
+    for y, x in zip(hy_all // tile, hx_all // tile):
+        tiles[(y, x)] = True
+    m = tile
+    for ty, tx in tiles:
+        y0, x0 = ty * tile, tx * tile
+        wy0, wy1 = max(0, y0 - m), min(H, y0 + tile + m)
+        wx0, wx1 = max(0, x0 - m), min(W, x0 + tile + m)
+        survive = clear[wy0:wy1, wx0:wx1]
+        ky, kx = np.nonzero(survive)
+        if len(ky) < 20:
+            continue
+        a = arr[wy0:wy1, wx0:wx1]
+        px = a[ky, kx].astype(float)
+        centres = _classes(px, min_share=0.08)[:3]
+        if len(centres) < 2:
+            continue
+        cls = np.argmin(np.stack([np.abs(px - c).max(1) for c in centres], 1), 1)
+        h = hole[y0:min(H, y0 + tile), x0:min(W, x0 + tile)]
+        hy, hx = np.nonzero(h)
+        hy, hx = hy + (y0 - wy0), hx + (x0 - wx0)        # window coordinates
+        side = _fit_sides(np.stack([ky, kx], 1).astype(float), cls, len(centres),
+                          np.stack([hy, hx], 1).astype(float))
+        for c in range(len(centres)):
+            sel = side == c
+            if not sel.any():
+                continue
+            src = np.zeros(survive.shape, bool)
+            src[ky[cls == c], kx[cls == c]] = True
+            ii = ndimage.distance_transform_edt(~src, return_distances=False,
+                                                return_indices=True)
+            out[wy0 + hy[sel], wx0 + hx[sel]] = a[ii[0][hy[sel], hx[sel]],
+                                                  ii[1][hy[sel], hx[sel]]]
     return out
 
 
