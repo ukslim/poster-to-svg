@@ -257,7 +257,11 @@ def stage1(group, lines, faces, feats=None, keep=SHAPE_POOL, brief=None):
         # monospace capital line can come out level with a condensed one on
         # shape alone (wpa_new_deal's title went to Geist Mono). A brief that
         # names Monospace -- a typewriter style -- lifts this.
-        if '/Monospace/Monospace' in tags and not (brief and '/Monospace/Monospace' in brief):
+        # A word space over 0.45em marks a monospaced Latin too, tagged or not
+        # (the BIZ UD faces: surrealist's headline came out with gaping spaces).
+        sp = f['record']['metrics'].get(' ')
+        mono = '/Monospace/Monospace' in tags or (sp and sp[0] / f['record']['upem'] > 0.45)
+        if mono and not (brief and '/Monospace/Monospace' in brief):
             ch_prior = 0.3
         else:
             ch_prior = 0.0
