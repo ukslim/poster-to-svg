@@ -293,7 +293,10 @@ def apply_assign(lines, copy, assigned, specs):
                                      'now; look at the overlay again')
                 i = min(hits, key=lambda h: abs((lines[h]['y0'] + lines[h]['y1']) / 2 - y))
             bands.append(i)
-        bands = sorted(set(bands), key=lambda i: (lines[i]['y0'], lines[i]['left']))
+        # Keep the order given: it is the reading order. Sorting by top edge
+        # read mid_century's "Village Fete" row as Fete-then-Village, because
+        # the F stands 4px higher, and split the words across them backwards.
+        bands = list(dict.fromkeys(bands))
         for a in list(by_key.values()):
             if a['key'] != key:
                 a['bands'] = [b for b in a['bands'] if b not in bands]

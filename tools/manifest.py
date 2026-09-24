@@ -4,6 +4,9 @@
     python3 manifest.py            # summary
     python3 manifest.py --todo     # just the outstanding ones
     python3 manifest.py --flawed   # converted, but labelled as known to be flawed
+
+A converted SVG with no solution beside it is 'hand-built': it came from an
+exploratory session, not from the tool.
     python3 manifest.py --json     # write manifest.json
 
 Derived by scanning the directories, so it cannot drift from reality.
@@ -37,6 +40,11 @@ def scan():
                 # Converted, examined, and still wrong after three attempts.
                 why = flawed_reason(text)
                 row['status'] = 'done' if why is None else 'flawed'
+                # No solution beside it: built by hand in an exploratory
+                # session, not by the tool, so the tool cannot rebuild it and
+                # regress.py and audit.py do not cover it.
+                if not os.path.exists(os.path.join(poster_site.solutions(), base + '.json')):
+                    row['status'] = 'hand-built'
                 row['reason'] = why
                 if why is not None:
                     row['verdict'], row['outlook'] = flawed_outlook(text)
@@ -72,6 +80,7 @@ def main():
     skipped = [r for r in rows if r['status'] == 'skipped']
     flawed = [r for r in rows if r['status'] == 'flawed']
     todo = [r for r in rows if r['status'] == 'outstanding']
+    hand = [r for r in rows if r['status'] == 'hand-built']
 
     if a.todo:
         for r in todo:
@@ -84,11 +93,16 @@ def main():
                 print(f"    {r['outlook']}")
         return
 
-    print(f'{len(rows)} posters: {len(done)} done, {len(flawed)} flawed, '
-          f'{len(skipped)} skipped, {len(todo)} outstanding')
+    print(f'{len(rows)} posters: {len(done)} done, {len(hand)} hand-built, '
+          f'{len(flawed)} flawed, {len(skipped)} skipped, {len(todo)} outstanding')
     if done:
         print('\ndone:')
         for r in done:
+            print(f"  {r['style']:34} {r['event']:5} {r['bytes']/1024:6.0f}KB  "
+                  f"{', '.join(r['faces'][:3])}")
+    if hand:
+        print('\nhand-built (no solution; the tool has never converted these):')
+        for r in hand:
             print(f"  {r['style']:34} {r['event']:5} {r['bytes']/1024:6.0f}KB  "
                   f"{', '.join(r['faces'][:3])}")
     if flawed:

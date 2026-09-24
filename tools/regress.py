@@ -27,7 +27,7 @@ BASELINE = os.path.join(os.path.dirname(HERE), 'tests', 'regress_baseline.json')
 TOL = 3      # px a band edge may move before it counts as a change
 
 DEFAULT_KNOBS = dict(solid_radius=24, rule_length=160, rule_thick=5, min_glyphs=2,
-                     contrast=40, window=61, wrap_cap_ratio=1.3, exclude=[])
+                     contrast=40, window=61, wrap_cap_ratio=1.3, exclude=[], assign=[])
 
 
 def knobs_of(sol):
@@ -61,9 +61,22 @@ def measure_one(name):
                        contrast=k['contrast'], window=k['window'],
                        wrap_cap_ratio=k['wrap_cap_ratio'], exclude=k['exclude'])
         event = name.rsplit('-', 2)[1]
-        assigned, _, cost = assign_copy(m['lines'], load_copy(event),
+        copy = load_copy(event)
+        assigned, _, cost = assign_copy(m['lines'], copy,
                                         wrap_cap_ratio=k['wrap_cap_ratio'])
-        return name, summary(m['lines'], assigned, cost)
+        out = summary(m['lines'], assigned, cost)
+        # The aligner's own answer is what is scored; the pinned answer (the
+        # stored --assign points applied on top) is what convert.py would
+        # build, and should reproduce what was accepted.
+        if k['assign']:
+            from align import apply_assign
+            try:
+                pinned, _ = apply_assign(m['lines'], copy, [dict(a) for a in assigned],
+                                         k['assign'])
+                out['pinned'] = summary(m['lines'], pinned, cost)['assigned']
+            except SystemExit as e:
+                out['pinned_error'] = str(e)
+        return name, out
     except Exception as e:                      # a crash is a result too
         return name, {'error': f'{type(e).__name__}: {e}'}
 
@@ -76,6 +89,16 @@ def from_solution(name):
 def same_boxes(a, b):
     return len(a) == len(b) and all(
         all(abs(x - y) <= TOL for x, y in zip(p, q)) for p, q in zip(a, b))
+
+
+def same_place(gold, got, slack=4):
+    if not got or len(gold) != len(got):
+        return False
+    for (y0, y1, l, r), (g0, g1, gl, gr) in zip(gold, got):
+        cx, cy = (l + r) / 2, (y0 + y1) / 2
+        if not (gl - slack <= cx <= gr + slack and g0 - slack <= cy <= g1 + slack):
+            return False
+    return True
 
 
 def compare(name, old, new):
@@ -162,6 +185,32 @@ def judged_score(names, now, base):
     if not os.path.exists(path):
         return
     judged = {k + '-v2': v for k, v in json.load(open(path)).items() if not k.startswith('_')}
+    # Pinned posters: does what convert.py would build match what was accepted?
+    # Lines pin.py could not pin (their bands are gone) are left out.
+    pinned_ok, pinned_bad = 0, []
+    for n in names:
+        if n not in now or not judged.get(n, {}).get('golden') == 'stored':
+            continue
+        if 'pinned_error' in now[n]:
+            pinned_bad.append(n[:-3] + ' (error)')
+            continue
+        if 'pinned' not in now[n]:
+            continue
+        gold = from_solution(n)['assigned']
+        got = now[n]['pinned']
+        pinned_keys = {p.split('=')[0] for p in knobs_of(json.load(open(os.path.join(
+            poster_site.solutions(), n + '.json'))))['assign']}
+        # Same assignment = each accepted band's centre lies in the band now
+        # given that line. Edges may move (re-segmentation refines them);
+        # lines pin.py could not pin are known detection gaps, not failures.
+        bad = [k for k in gold if k in pinned_keys and not same_place(gold[k], got.get(k))]
+        if bad:
+            pinned_bad.append(f"{n[:-3]} ({', '.join(bad)})")
+        else:
+            pinned_ok += 1
+    if pinned_ok or pinned_bad:
+        print(f'pinned: {pinned_ok}/{pinned_ok + len(pinned_bad)} reproduce the accepted '
+              f'assignment' + (f'; not: {"; ".join(pinned_bad)}' if pinned_bad else ''))
     hit, miss, open_ = 0, [], []
     for n in names:
         j = judged.get(n)
@@ -176,7 +225,7 @@ def judged_score(names, now, base):
             hit += 1
         else:
             miss.append(n[:-3])
-    print(f'judged: {hit}/{hit + len(miss)} match the assignment judged right'
+    print(f'aligner alone: {hit}/{hit + len(miss)} match the assignment judged right'
           + (f'; not yet: {", ".join(miss)}' if miss else '')
           + (f'; no right answer yet: {", ".join(open_)}' if open_ else ''))
 

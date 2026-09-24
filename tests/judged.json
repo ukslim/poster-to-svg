@@ -1,15 +1,143 @@
 {
- "_about": "Verdicts from looking at overlay.py --vs-solution (stored | current) for posters whose assignment changed. 'golden' names the assignment judged right: 'stored' (the solution in the site), 'baseline' (tests/regress_baseline.json), or null when neither is right. Judged 2026-09-24 against the code at commit d16c8b1.",
- "risograph-gig": {"golden": "stored", "note": "current leaves FLOOD unassigned"},
- "taisho_modern-fete": {"golden": "stored", "note": "current no longer detects VILLAGE FETE"},
- "bauhaus_modernist-fete": {"golden": "baseline", "note": "current also assigns footer0 FREE ENTRY"},
- "bauhaus_modernist-gig": {"golden": "baseline", "note": "same; footer edge moved 5px"},
- "botanical_scientific-fete": {"golden": "stored", "note": "current merges venue into date and puts beneficiary on a plate caption"},
- "contemporary_flat_illustration-fete": {"golden": "stored", "note": "current scatters the attractions over the jar"},
- "factory_records-fete": {"golden": null, "note": "title is three stepped bands Brindlewick/Village/Fete; stored used two, current only the giant Fete"},
- "low_poly-fete": {"golden": "stored", "note": "current misses the 3D title and slides every line down"},
- "mid_century_modern_graphic-fete": {"golden": "stored", "note": "current leaves ATTRACTIONS label unassigned"},
- "orphism-fete": {"golden": "stored", "note": "current drops the beneficiary"},
- "screenprint_pop-fete": {"golden": "stored", "note": "current mangles the list and drops FREE ENTRY"},
- "zagreb_school_animation-fete": {"golden": "stored", "note": "current moves footer0 to a small band on the right"}
+ "_about": "Which copy assignment is right, per poster, as judged by eye on overlay.py. 'golden' names it: 'stored' (the solution in the site), 'baseline' (tests/regress_baseline.json), or null when neither is right. The stored solutions were made with in-progress or ad-hoc code, so 'stored' is a target for the tool, not something it once did. Judged 2026-09-24.",
+ "risograph-gig": {
+  "golden": "stored",
+  "note": "current leaves FLOOD unassigned"
+ },
+ "taisho_modern-fete": {
+  "golden": "stored",
+  "note": "current no longer detects VILLAGE FETE"
+ },
+ "bauhaus_modernist-fete": {
+  "golden": "baseline",
+  "note": "current also assigns footer0 FREE ENTRY"
+ },
+ "bauhaus_modernist-gig": {
+  "golden": "baseline",
+  "note": "same; footer edge moved 5px"
+ },
+ "botanical_scientific-fete": {
+  "golden": "stored",
+  "note": "current merges venue into date and puts beneficiary on a plate caption"
+ },
+ "contemporary_flat_illustration-fete": {
+  "golden": "stored",
+  "note": "current scatters the attractions over the jar"
+ },
+ "factory_records-fete": {
+  "golden": null,
+  "note": "title is three stepped bands Brindlewick/Village/Fete; stored used two, current only the giant Fete"
+ },
+ "low_poly-fete": {
+  "golden": "stored",
+  "note": "current misses the 3D title and slides every line down"
+ },
+ "mid_century_modern_graphic-fete": {
+  "golden": "stored",
+  "note": "current leaves ATTRACTIONS label unassigned"
+ },
+ "orphism-fete": {
+  "golden": "stored",
+  "note": "current drops the beneficiary"
+ },
+ "screenprint_pop-fete": {
+  "golden": "stored",
+  "note": "current mangles the list and drops FREE ENTRY"
+ },
+ "zagreb_school_animation-fete": {
+  "golden": "stored",
+  "note": "current moves footer0 to a small band on the right"
+ },
+ "botanical_scientific-gig": {
+  "golden": "stored",
+  "note": "done poster; stored assignment checked on the overlay, every line right"
+ },
+ "child_paint_pro_typography-fete": {
+  "golden": "stored",
+  "note": "done poster; stored assignment checked on the overlay, every line right"
+ },
+ "concrete_art-gig": {
+  "golden": "stored",
+  "note": "done poster; stored assignment checked on the overlay, every line right"
+ },
+ "contemporary_editorial-fete": {
+  "golden": "stored",
+  "note": "done poster; stored assignment checked on the overlay, every line right"
+ },
+ "contemporary_editorial-gig": {
+  "golden": "stored",
+  "note": "done poster; stored assignment checked on the overlay, every line right"
+ },
+ "contemporary_flat_illustration-gig": {
+  "golden": "stored",
+  "note": "done poster; stored assignment checked on the overlay, every line right"
+ },
+ "cubist_exhibition-gig": {
+  "golden": "stored",
+  "note": "done poster; stored assignment checked on the overlay, every line right"
+ },
+ "cut_paper_matisse-fete": {
+  "golden": "stored",
+  "note": "done poster; stored assignment checked on the overlay, every line right"
+ },
+ "cut_paper_matisse-gig": {
+  "golden": "stored",
+  "note": "done poster; stored assignment checked on the overlay, every line right"
+ },
+ "de_stijl-fete": {
+  "golden": "stored",
+  "note": "done poster; stored assignment checked on the overlay, every line right"
+ },
+ "east_german_defa-gig": {
+  "golden": "stored",
+  "note": "done poster; stored assignment checked on the overlay, every line right"
+ },
+ "etching_engraving-fete": {
+  "golden": "stored",
+  "note": "done poster; stored assignment checked on the overlay, every line right"
+ },
+ "factory_records-gig": {
+  "golden": "stored",
+  "note": "done poster; stored assignment checked on the overlay, every line right"
+ },
+ "festival_of_britain-fete": {
+  "golden": "stored",
+  "note": "done poster; stored assignment checked on the overlay, every line right"
+ },
+ "festival_of_britain-gig": {
+  "golden": "stored",
+  "note": "done poster; stored assignment checked on the overlay, every line right"
+ },
+ "golden_age_travel-gig": {
+  "golden": "stored",
+  "note": "done poster; stored assignment checked on the overlay, every line right"
+ },
+ "japanese_minimal_poster-fete": {
+  "golden": "stored",
+  "note": "done poster; stored assignment checked on the overlay, every line right"
+ },
+ "low_poly-gig": {
+  "golden": "stored",
+  "note": "done poster; stored assignment checked on the overlay, every line right"
+ },
+ "minimalism_art-fete": {
+  "golden": "stored",
+  "note": "done poster; stored assignment checked on the overlay, every line right"
+ },
+ "minimalism_art-gig": {
+  "golden": "stored",
+  "note": "done poster; stored assignment checked on the overlay, every line right"
+ },
+ "suprematism-fete": {
+  "golden": "stored",
+  "note": "done poster; stored assignment checked on the overlay, every line right"
+ },
+ "surrealist-gig": {
+  "golden": "stored",
+  "note": "done poster; stored assignment checked on the overlay, every line right"
+ },
+ "swiss_international-fete": {
+  "golden": "stored",
+  "note": "done poster; stored assignment checked on the overlay, every line right"
+ }
 }
