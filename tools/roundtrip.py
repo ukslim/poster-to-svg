@@ -30,6 +30,7 @@ and every stage is graded against what was drawn:
   split     a wrapped line breaks at the words the original broke at
   blank     under each line, the SVG's artwork layer matches the true artwork
             (drawn separately, without type): no ghost, no damage
+  art       away from the type, the artwork layer is the artwork (per poster)
   audit     audit.py's leads on the result: alignment, ghosts, damage
 
 It cannot imitate a generator's drifting letterforms, so passing here is
@@ -253,8 +254,12 @@ def draw_fete(rng, copy, d, t, it):
         y += 10 + 8 * step
     else:
         mid = W // 2
-        if rng.random() < 0.5:           # a rule between the columns
-            P.art.line([mid, y - 10, mid, y + 4 * step], fill=P.ink, width=2)
+        if rng.random() < 0.6:           # a rule between the columns
+            # sometimes a short one: under 120px it escapes the rule detector
+            # and must not be swept up as a stray letter (east_german, wpa)
+            length = rng.choice([4 * step + 10, 90])
+            P.art.line([mid, y - 10 + (4 * step + 10 - length) // 2, mid,
+                        y - 10 + (4 * step + 10 + length) // 2], fill=P.ink, width=2)
         for i, item in enumerate(items):
             col, row = divmod(i, 4)
             cx0, cx1 = (x0, mid - 24) if col == 0 else (mid + 24, x1)
@@ -431,6 +436,25 @@ def grade(sol, svg_path, truth, workdir, art=None):
                 notes.append(f'blank: {key} {bad:.0%} of the type area differs from the '
                              f'true artwork (ghost or damage)')
 
+        # art: away from the type, the artwork layer IS the artwork -- nothing
+        # the ghost sweep or the blanking took with it (a rule between list
+        # columns, a shape's edge)
+        away = ~ndimage.binary_dilation(typed, iterations=6)
+        # ...and away from the artwork's own edges, which the degraded poster
+        # (softened before conversion) has moved by a pixel or so
+        grad = np.abs(np.diff(truth_art, axis=0, prepend=truth_art[:1])).max(2) + \
+            np.abs(np.diff(truth_art, axis=1, prepend=truth_art[:, :1])).max(2)
+        away &= ~ndimage.binary_dilation(grad > 30, iterations=2)
+        d = np.abs(shipped_art - truth_art).max(2) > 60
+        lost = float(d[away].mean()) if away.any() else 0.0
+        card['art'] = [int(lost < 0.002), 1]
+        if lost >= 0.002:
+            lab, n = ndimage.label(d & away)
+            big = sorted((sl for sl in ndimage.find_objects(lab)),
+                         key=lambda sl: -(sl[0].stop - sl[0].start) * (sl[1].stop - sl[1].start))[:2]
+            where = '; '.join(f'x{sl[1].start}-{sl[1].stop} y{sl[0].start}-{sl[0].stop}' for sl in big)
+            notes.append(f'art: {lost:.2%} of the artwork away from the type differs ({where})')
+
     # audit leads on the result
     from audit import audit
     leads = audit(svg_path, sol, workdir)
@@ -490,14 +514,16 @@ def one(job):
 
 
 def totals(results):
-    tot = {k: [0, 0] for k in ('assign', 'face', 'size', 'case', 'track', 'split', 'blank')}
+    tot = {k: [0, 0] for k in ('assign', 'face', 'size', 'case', 'track', 'split', 'blank', 'art')}
     tot['audit'] = {}
     built = 0
     for _, _, card, _ in results:
         if not card:
             continue
         built += 1
-        for k in ('assign', 'face', 'size', 'case', 'track', 'split', 'blank'):
+        for k in ('assign', 'face', 'size', 'case', 'track', 'split', 'blank', 'art'):
+            if k not in card:
+                continue
             tot[k][0] += card[k][0]
             tot[k][1] += card[k][1]
         for k, v in card['audit'].items():
@@ -508,7 +534,7 @@ def totals(results):
 
 def show(tot):
     parts = [f"built {tot['built'][0]}/{tot['built'][1]}"]
-    parts += [f'{k} {tot[k][0]}/{tot[k][1]}' for k in ('assign', 'face', 'size', 'case', 'track', 'split', 'blank')
+    parts += [f'{k} {tot[k][0]}/{tot[k][1]}' for k in ('assign', 'face', 'size', 'case', 'track', 'split', 'blank', 'art')
               if k in tot]
     au = ', '.join(f'{k} {v}' for k, v in tot['audit'].items() if v) or 'none'
     return '  '.join(parts) + f'   audit leads: {au}'

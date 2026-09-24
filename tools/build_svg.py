@@ -773,6 +773,12 @@ def artwork_svg(spec, sol, workdir, quality=76):
                     continue
                 if bw > 6 * bh:                     # a rule, not a letter
                     continue
+                # ...nor a vertical one: no letter is both that thin and much
+                # taller than a capital. A short rule between list columns
+                # (wpa_new_deal, east_german_defa) escapes the rule detector
+                # at under 120px and was being painted out as a stray glyph.
+                if bh > 1.5 * med and bw < 0.12 * bh:
+                    continue
                 if not (tx0 <= xs.start and xs.stop <= tx1
                         and ty0 <= ys.start and ys.stop <= ty1):
                     continue
