@@ -22,23 +22,45 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from bands import find_lines, eff_width  # noqa: E402
 from copytext import load_copy  # noqa: E402
 from align import assign_copy, apply_assign  # noqa: E402
-from masks import ink_masks  # noqa: E402
-from analyse import modal_colour  # noqa: E402
-from svgkit import Face, render_glyph  # noqa: E402
+from svgkit import Face, render_glyph, top_ratio  # noqa: E402
 from shapescore import chamfer  # noqa: E402
+from typefeatures import features, distance, weight as ridge_weight  # noqa: E402
+from linemask import line_mask  # noqa: E402
+import catalogue  # noqa: E402
+from character import parse as parse_brief, mismatch  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-INDEX = os.path.normpath(os.path.join(HERE, '..', 'fonts', 'index.json'))
-
 # Glyphs worth comparing by shape: the ones that most separate families.
 DISCRIMINATING = 'RGQaegSWM&2'
+# How many styles go on to be fetched and compared by shape.
+SHAPE_POOL = 80
+# How much the feature distance counts against the width fit in stage 1.
+FEATURE_WEIGHT = 0.5
+# How a character brief counts: a gate, not a referee. Below CHARACTER_FREE
+# (the family is roughly what the brief says) it costs nothing, and shape and
+# metrics decide between near neighbours, which Google's tags cannot. Past
+# it the cost climbs steeply: a face of the wrong kind -- a sans for a
+# playbill wood type, a comic face for a sober grotesque -- is wrong however
+# well its widths and weight fit.
+CHARACTER_FREE = 0.3
+CHARACTER_WEIGHT = 8.0
 
 
-def load_index():
-    return json.load(open(INDEX))['faces']
+def load_faces():
+    """Every style in the catalogue, in the shape the ranking stages use."""
+    out = []
+    for r in catalogue.load():
+        x = r['metrics'].get('x')
+        sub = catalogue.label(r)[len(r['family']) + 1:] if r['source'] == 'google' \
+            else r.get('sub', '')
+        out.append(dict(family=r['family'], subfamily=sub, weight=r['weight'],
+                        embed=r['embed'], path=r.get('path'), index=r.get('index'),
+                        cap_ratio=r['cap'] / r['upem'],
+                        x_ratio=(x[4] / r['upem']) if x else None,
+                        missing=r['missing'], record=r))
+    return out
 
 
-# ------------------------------------------------------------------ grouping
 def group_lines_by_face(assigned, lines):
     """Split logical lines into sets that plausibly share one face.
 
@@ -135,80 +157,117 @@ def _shortlist(cands, n=8, extra=4):
 
 
 # --------------------------------------------------------------- stage one
-def stage1(group, lines, faces, keep=24):
-    """Arithmetic scoring of every face against a group of lines."""
+def stage1(group, lines, faces, feats=None, keep=SHAPE_POOL, brief=None):
+    """Arithmetic scoring of every style against a group of lines.
+
+    Width fit, from each style's stored metrics (no font is loaded), plus the
+    distance between the poster's measured features and the style's: stroke
+    weight, contrast, slant, per-character proportions. Width alone is weak,
+    since scaling can fake it; the features are what scaling cannot.
+    """
     text = ''.join(a['text'] for a in group)
+    need = set(text) - {' '}
     out = []
     for f in faces:
-        if set(f['missing']) & set(text):
+        if set(f['missing']) & need:
             continue
-        try:
-            face = Face(f['path'], index=f['index'])
-        except Exception:
-            continue
+        face = catalogue.RecordFace(f['record'])
         ratios, xerr = [], []
         for a in group:
             b = lines[a['bands'][0]]
-            size = b['cap'] / f['cap_ratio']
+            size = b['cap'] / top_ratio(face, a['text'])
             # Compare per visual line. Measuring the wrapped whole against the
             # unwrapped string counts the spaces that became line breaks, which
             # makes every candidate look too wide.
             parts = a.get('parts') or split_text(a['text'], a['bands'], lines)
-            try:
-                if parts and len(parts) == len(a['bands']):
-                    natural = sum(face.width(p, lines[i]['cap'] / f['cap_ratio'])
-                                  for p, i in zip(parts, a['bands']))
-                    measured = sum(eff_width(lines[i]) for i in a['bands'])
-                else:
-                    natural = face.width(a['text'], size)
-                    measured = sum(eff_width(lines[i]) for i in a['bands'])
-            except Exception:
-                natural = None
+            if parts and len(parts) == len(a['bands']):
+                natural = sum(face.width(p, lines[i]['cap'] / top_ratio(face, p))
+                              for p, i in zip(parts, a['bands']))
+            else:
+                natural = face.width(a['text'], size)
+            measured = sum(eff_width(lines[i]) for i in a['bands'])
             if not natural:
                 continue
             ratios.append(measured / natural)
-            if f['x_ratio'] and b['x_height']:
+            if f['x_ratio'] and b['x_height'] and b.get('lower_frac', 0) > 0.3:
                 xerr.append(abs(f['x_ratio'] * size - b['x_height']) / b['x_height'])
         if not ratios:
             continue
         med = float(np.median(ratios))
         spread = float(np.std(ratios))
-        # A stem under 0.05 of cap height is a failed measurement, not a
-        # hairline face: on heavy display type the "narrowest run" is a sliver
-        # of antialiasing or a serif, and trusting it ranked weight-100 faces
-        # first for six headlines that were plainly bold. Treat it as unknown.
-        stems = [lines[a['bands'][0]]['stem_ratio'] for a in group
-                 if (lines[a['bands'][0]]['stem_ratio'] or 0) >= 0.05]
-        stem_err = (abs(f['stem_ratio'] - float(np.median(stems))) / float(np.median(stems))
-                    if stems and f['stem_ratio'] else None)
-        # Width alone is weak: a face can be made to fit by scaling. Weight the
-        # things scaling cannot fake -- stem weight and x-height proportion --
-        # and how consistently one face explains every line in the group.
+        fd, parts_ = (distance(feats, f['record']['features'])
+                      if feats else (0.0, {}))
+        # System faces carry no tags and never ship; keep them neutral.
+        ch = (0.25 if f['record']['source'] == 'system'
+              else mismatch(brief, f['record'].get('tags', {}))) if brief else 0.0
         score = (abs(np.log(med)) * 0.8
                  + spread * 1.8
                  + (float(np.mean(xerr)) * 1.2 if xerr else 0.0)
-                 + (stem_err * 2.0 if stem_err is not None else 0.4))
+                 + FEATURE_WEIGHT * fd
+                 + CHARACTER_WEIGHT * max(0.0, ch - CHARACTER_FREE))
         out.append(dict(face=f, width_ratio=round(med, 4), spread=round(spread, 4),
                         x_err=round(float(np.mean(xerr)), 4) if xerr else None,
-                        stem_err=round(stem_err, 4) if stem_err is not None else None,
+                        features=round(fd, 3), feature_parts=parts_,
+                        character=round(ch, 3) if brief else None,
+                        stem_err=round(parts_['weight'], 4) if 'weight' in parts_ else None,
                         metric_score=round(float(score), 4),
                         score=round(float(score), 4)))
     out.sort(key=lambda r: r['score'])
+    # A shortlist of forty Oswalds says nothing. At most two styles a family,
+    # so the shape stage sees forty different ideas of what the face is.
+    keepers, per = [], collections.Counter()
+    for r in out:
+        if per[r['face']['family']] < 2:
+            keepers.append(r)
+            per[r['face']['family']] += 1
+        if len(keepers) >= keep:
+            break
     # Always carry the closest width matches through, even if the combined
-    # score buried them. The combined score mixes stem weight and x-height
-    # with width, and a face can be ranked out while being the one face in the
-    # corpus that sets the line at the right width -- on bauhaus_modernist's
-    # fete title, League Gothic matched the measured width to 1% and still
-    # missed the shortlist, leaving nothing on it narrower than 1.7x. Shape
+    # score buried them: on bauhaus_modernist's fete title, League Gothic
+    # matched the measured width to 1% and still missed the shortlist. Shape
     # scoring decides between them afterwards; this only decides what gets to
     # be looked at.
-    keepers = out[:keep]
     seen = {id(r) for r in keepers}
     by_width = sorted(out, key=lambda r: abs(np.log(max(r['width_ratio'], 1e-6))))
     for r in by_width[:6]:
         if id(r) not in seen:
             keepers.append(r)
     return keepers
+
+
+def fetch_files(cands):
+    """Give each shortlisted style a real font file: system faces have one,
+    Google styles are fetched as a subset of the copy's characters (cached)."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    def one(c):
+        try:
+            path, index = catalogue.face_file(c['face']['record'])
+            return dict(c, face=dict(c['face'], path=path, index=index))
+        except Exception:
+            return None
+    with ThreadPoolExecutor(16) as ex:
+        return [c for c in ex.map(one, cands) if c]
+
+
+def group_features(group, lines, arr, crops):
+    """The poster's features for one face group, from its glyph crops; stroke
+    weight falls back to the whole lines' two-colour masks when no glyph could
+    be cut out, so weight is never missing."""
+    feats = features(crops) if crops else features([])
+    if feats['weight'] is None:
+        ws = []
+        for a in group:
+            for bi in a['bands']:
+                b = lines[bi]
+                m, _ = line_mask(arr, (b['left'], b['y0'], b['right'], b['y1']),
+                                 b['rgb'], b.get('ground'))
+                if m is not None:
+                    w = ridge_weight(m, b['cap'])
+                    if w:
+                        ws.append(w)
+        feats['weight'] = float(np.median(ws)) if ws else None
+    return feats
 
 
 # --------------------------------------------------------------- stage two
@@ -266,19 +325,25 @@ def glyph_crops(group, lines, arr, limit=10):
         if not parts:
             continue
         for bi, part in zip(a['bands'], parts):
-            for ch, crop in segment(arr, lines[bi], part):
+            seg = segment(arr, lines[bi], part)
+            # Proportions are per cap height. A mixed-case band's measured
+            # "cap" is its ascender line, a few percent taller, so use the
+            # line's own flat capitals where it has any.
+            flat = [c.shape[0] for ch, c in seg if ch in 'BDEFHIKLMNPRTUVWXYZ']
+            cap = float(np.median(flat)) if flat else lines[bi]['cap']
+            for ch, crop in seg:
                 if ch.isalnum() and crop.shape[0] > 8:
-                    crops.append((ch, crop))
+                    crops.append((ch, crop, cap))
     # Prefer the glyphs that separate families, but take whatever the poster
     # offers: insisting on a short list leaves lines with one usable glyph, and
     # one glyph cannot choose a typeface.
     crops.sort(key=lambda t: (DISCRIMINATING.find(t[0]) < 0,
                               -(t[1].shape[0] * t[1].shape[1])))
     seen, out = set(), []
-    for ch, c in crops:
+    for ch, c, cap in crops:
         if ch not in seen:
             seen.add(ch)
-            out.append((ch, c))
+            out.append((ch, c, cap))
         if len(out) >= limit:
             break
     return out
@@ -296,7 +361,7 @@ def stage2(cands, crops):
     for c in cands:
         face = Face(c['face']['path'], index=c['face']['index'])
         scores = []
-        for ch, crop in crops:
+        for ch, crop, _ in crops:
             if not face.has(ch):
                 continue
             g = render_glyph(face, ch, crop.shape[0] / c['face']['cap_ratio'])
@@ -317,21 +382,25 @@ def stage2(cands, crops):
 
 
 # ------------------------------------------------------------- distortion
-def classify(group, lines, best):
+def classify(group, lines, best, feats=None):
     """Name any width disagreement, using SKILL.md's three rules."""
     notes = []
     f = best['face']
     for a in group:
         b = lines[a['bands'][0]]
-        size = b['cap'] / f['cap_ratio']
         face = Face(f['path'], index=f['index'])
+        size = b['cap'] / top_ratio(face, a['text'])
         measured = sum(eff_width(lines[i]) for i in a['bands'])
         natural = face.width(a['text'], size)
         ratio = measured / natural if natural else 1.0
         if abs(ratio - 1) < 0.06:
             continue
-        stem_ok = (b['stem_ratio'] and f['stem_ratio']
-                   and abs(b['stem_ratio'] - f['stem_ratio']) / f['stem_ratio'] < 0.18)
+        # A face squashed to fit loses stroke weight with its width; one the
+        # generator merely set smaller keeps it. Compare the poster's measured
+        # ridge weight with the face's own.
+        fw = (f.get('record') or {}).get('features', {}).get('weight')
+        pw = (feats or {}).get('weight')
+        stem_ok = bool(fw and pw and abs(pw - fw) / fw < 0.18)
         if ratio < 0.94 and stem_ok:
             kind, act = 'squeezed_to_fit', 'resize this line so it fits naturally'
         elif ratio < 0.94:
@@ -363,7 +432,18 @@ def confidence(cands, n_glyphs=None):  # noqa
 
 
 # ------------------------------------------------------------------- main
-def solve(image, event, keep=24, wrap_cap_ratio=1.3, assign=None, **measure_opts):
+def briefs_for(kind, grp, character):
+    """The character brief for a face group: given by group name, or by any
+    copy line in it (the headliner's brief is the display group's)."""
+    if not character:
+        return None
+    keys = [kind] + [a['key'] for a in grp]
+    specs = [v for k, v in character.items() if k in keys]
+    return parse_brief(', '.join(specs)) if specs else None
+
+
+def solve(image, event, keep=SHAPE_POOL, wrap_cap_ratio=1.3, assign=None,
+          character=None, **measure_opts):
     m = find_lines(image, **measure_opts)
     copy = load_copy(event)
     assigned, note, cost = assign_copy(m['lines'], copy,
@@ -371,7 +451,7 @@ def solve(image, event, keep=24, wrap_cap_ratio=1.3, assign=None, **measure_opts
     assigned, assign_points = apply_assign(m['lines'], copy, assigned, assign)
     if assign_points:
         note = f"{note}; {len(assign_points)} line(s) assigned by hand"
-    faces = load_index()
+    faces = load_faces()
 
     # Posters set their copy in the case the design calls for, and plenty set
     # it in full capitals. The copy in events.yaml is sentence case, so reset
@@ -426,22 +506,33 @@ def solve(image, event, keep=24, wrap_cap_ratio=1.3, assign=None, **measure_opts
                        f'--knockout {b[0]},{b[1]},{b[2]},{b[3]}'))
 
     for kind, grp in group_lines_by_face(assigned, m['lines']).items():
-        cands = stage1(grp, m['lines'], faces, keep)
         crops = glyph_crops(grp, m['lines'], a)
+        feats = group_features(grp, m['lines'], a, crops)
+        brief = briefs_for(kind, grp, character)
+        cands = fetch_files(stage1(grp, m['lines'], faces, feats, keep, brief))
         cands = stage2(cands, crops)
         conf, margin = confidence(cands, len(crops))
         best = cands[0] if cands else None
         groups[kind] = dict(
             lines=[a2['key'] for a2 in grp],
-            shape_glyphs=''.join(c for c, _ in crops),
+            shape_glyphs=''.join(c for c, _, _ in crops),
+            brief=brief,
+            features={k: (round(v, 3) if isinstance(v, float) else v)
+                      for k, v in feats.items() if k not in ('aspect', 'height')},
             confidence=conf, margin=margin,
-            distortions=classify(grp, m['lines'], best) if best else [],
+            distortions=classify(grp, m['lines'], best, feats) if best else [],
             candidates=[dict(family=c['face']['family'], sub=c['face']['subfamily'],
                              weight=c['face']['weight'], embed=c['face']['embed'],
                              path=c['face']['path'], index=c['face']['index'],
                              cap_ratio=c['face']['cap_ratio'],
                              width_ratio=c['width_ratio'], spread=c['spread'],
                              stem_err=c['stem_err'], shape=c.get('shape'),
+                             features=c.get('features'), character=c.get('character'),
+                             record=dict(family=c['face']['family'],
+                                         weight=c['face']['weight'],
+                                         italic=c['face']['record'].get('italic', False),
+                                         wdth=c['face']['record'].get('wdth'),
+                                         source=c['face']['record']['source']),
                              score=c['score'])
                         for c in _shortlist(cands)])
         if conf != 'high':
@@ -477,10 +568,18 @@ def summarise(s):
         print(f"\n[{kind}]  {', '.join(g['lines'])}")
         print(f"  confidence {g['confidence']} (margin {g['margin']})"
               f"   shape glyphs: {g['shape_glyphs'] or 'NONE -- ranked on width and stem only'}")
+        if g.get('brief'):
+            print('  brief: ' + ', '.join(
+                f"{t.split('/')[-2] if t.endswith('*') else t.split('/')[-1]} {v}"
+                for t, v in g['brief'].items()))
+        ft = g.get('features') or {}
+        if ft:
+            print('  measured: ' + '  '.join(f'{k} {v}' for k, v in ft.items() if v is not None))
         for c in g['candidates'][:4]:
             print(f"    {c['family'][:28]:29} {c['sub'][:10]:11} w{c['weight']:<4}"
                   f" width {c['width_ratio']:.3f} spread {c['spread']:.3f}"
-                  f" stem_err {c['stem_err'] if c['stem_err'] is not None else '   -'}"
+                  f" feat {c['features'] if c.get('features') is not None else '  -'}"
+                  f"{(' char ' + str(c['character'])) if c.get('character') is not None else ''}"
                   f" shape {c['shape'] if c['shape'] is not None else '  -'}"
                   f"  => {c['score']:.3f}{'' if c['embed'] else '   [id-only]'}")
         for d in g['distortions']:
@@ -498,7 +597,7 @@ def main():
     ap.add_argument('image')
     ap.add_argument('--event', default='gig', choices=['gig', 'fete'])
     ap.add_argument('-o', '--out')
-    ap.add_argument('--keep', type=int, default=24)
+    ap.add_argument('--keep', type=int, default=80)
     ap.add_argument('--solid-radius', type=int, default=24,
                     help='0 disables; raise if heavy display type is eaten')
     ap.add_argument('--rule-length', type=int, default=160,

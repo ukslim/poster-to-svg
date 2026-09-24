@@ -26,7 +26,7 @@ import sitepaths as poster_site  # noqa: E402
 
 DEFAULTS = dict(artwork='mask', face=[], solid_radius=24, rule_length=160,
                 rule_thick=5, min_glyphs=3, contrast=40, window=61,
-                wrap_cap_ratio=1.3, exclude=[], knockout=[], assign=[])
+                wrap_cap_ratio=1.3, exclude=[], knockout=[], assign=[], character=[])
 # Ambiguities that mean the copy is on the wrong lines. Building then only
 # produces a confident-looking wrong poster.
 BLOCKING = ('weak_alignment', 'no_alignment')
@@ -72,7 +72,11 @@ def main():
     ap.add_argument('--assign', action='append', default=[], metavar='KEY=#N[+#M]',
                     help='put copy line KEY on band #N (numbered by overlay.py), '
                          'or KEY=none; overrides the aligner; repeatable')
-    ap.add_argument('--keep', type=int, default=24)
+    ap.add_argument('--character', action='append', default=[], metavar='KEY=BRIEF',
+                    help='what a line\'s face is like, in Google Fonts tags: '
+                         'headliner="Grotesque 90, Loud 80, Playful 5" '
+                         '(see character.py vocab); KEY is a copy line or face group')
+    ap.add_argument('--keep', type=int, default=80)
     ap.add_argument('--fresh', action='store_true',
                     help='ignore the knobs stored with an earlier solution')
     ap.add_argument('--force', action='store_true',
@@ -105,6 +109,7 @@ def main():
               solid_radius=k['solid_radius'], rule_length=k['rule_length'],
               rule_thick=k['rule_thick'], contrast=k['contrast'], window=k['window'],
               wrap_cap_ratio=k['wrap_cap_ratio'], assign=k['assign'],
+              character=dict(c.split('=', 1) for c in k['character']),
               exclude=[tuple(int(v) for v in x.split(',')) for x in k['exclude']])
     # Stored as points, not band numbers: re-measurement may renumber bands.
     k['assign'] = s['assign_points']

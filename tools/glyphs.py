@@ -33,13 +33,13 @@ def _reference():
     global _REF
     if _REF is None:
         from svgkit import Face
-        here = os.path.dirname(os.path.abspath(__file__))
-        for p in (os.path.join(here, '..', 'fonts', 'Inter-400.ttf'),
-                  os.path.join(here, '..', 'fonts', 'Roboto-400.ttf'),
-                  '/System/Library/Fonts/Helvetica.ttc'):
-            if os.path.exists(p):
-                _REF = Face(p, index=0 if p.endswith('.ttc') else None)
-                break
+        try:
+            from fontfetch import fetch
+            from catalogue import SPECIMEN
+            _REF = Face(fetch('Inter', 400, text=SPECIMEN))
+        except Exception:
+            if os.path.exists('/System/Library/Fonts/Helvetica.ttc'):
+                _REF = Face('/System/Library/Fonts/Helvetica.ttc', index=0)
     return _REF
 
 
@@ -54,6 +54,34 @@ def expected_widths(chars):
         else:
             out.append(0.5)
     return out
+
+
+_HOLES = {}
+
+
+def holes(mask):
+    """Counters: background regions enclosed by ink, big enough to be real."""
+    m = np.pad(np.asarray(mask, bool), 1)
+    lab, n = ndimage.label(~m)
+    if n <= 1:
+        return 0
+    sizes = ndimage.sum(np.ones_like(lab), lab, range(1, n + 1))
+    outside = lab[0, 0]
+    floor = max(3, 0.004 * m.size)
+    return sum(1 for i, sz in enumerate(sizes, start=1) if i != outside and sz >= floor)
+
+
+def expected_holes(ch):
+    """How many counters the letter has, from the reference face (O 1, B 2, L 0).
+    None where faces disagree too often to trust (g, and the & of most)."""
+    if ch in 'g&$%@':
+        return None
+    if ch not in _HOLES:
+        f = _reference()
+        from svgkit import render_glyph
+        g = render_glyph(f, ch, 200) if f is not None and f.has(ch) else None
+        _HOLES[ch] = holes(g > 128) if g is not None else None
+    return _HOLES[ch]
 
 
 def align(runs, chars):
@@ -121,6 +149,9 @@ def segment(arr, band, text):
     mask, _ = line_mask(arr, (x0, y0, x1, y1), band['rgb'], band.get('ground'))
     if mask is None:
         return []
+    exp = dict(zip(chars, expected_widths(chars)))
+    widths = [r[1] - r[0] + 1 for r in runs]
+    scale = sum(widths) / sum(expected_widths(chars))
     out = []
     for ri, ci in steps:
         if len(ci) != 1:
@@ -137,6 +168,17 @@ def segment(arr, band, text):
             sub = lab[r[2] - by0:r[3] - by0 + 1, r[0] - bx0:r[1] - bx0 + 1]
             keep.update(np.unique(sub[sub > 0]).tolist())
         crop = np.isin(lab, sorted(keep))
+        ch = chars[ci[0]]
+        # A crop attributed to the wrong letter poisons everything measured
+        # from it: an "O" that was really an L read as a square-cornered face
+        # and threw the right family out of the running. Two cheap proofs of
+        # identity: the right number of counters, and a plausible width.
+        want_h = expected_holes(ch)
+        if want_h is not None and holes(crop) != want_h:
+            continue
+        w = crop.shape[1]
+        if abs(np.log(max(w, 1) / max(exp[ch] * scale, 1))) > 0.6:
+            continue
         if crop.sum() >= 12:
-            out.append((chars[ci[0]], crop))
+            out.append((ch, crop))
     return out

@@ -26,11 +26,15 @@ current directory that contains `_data/events.yaml`.
 
 ```bash
 pip install -r requirements.txt
-python3 tools/fetch_fonts.py && python3 tools/build_index.py   # ~260 open faces, cached in fonts/
+python3 tools/catalogue.py build   # describe all ~6,500 Google Fonts styles; ~5 min, no fonts kept
 ```
 
+Faces are fetched from the Google Fonts CSS API as small subsets when they
+are shortlisted or chosen, and cached in `fonts/cache/`.
+
 Rendering and verification use headless Chrome, at the macOS default path;
-set `$CHROME` to point elsewhere.
+set `$CHROME` to point elsewhere. Artwork is compressed with ImageMagick
+(`magick`).
 
 ## Installing as a skill
 
@@ -45,4 +49,6 @@ ln -s ../../../poster-to-svg path/to/site/.claude/skills/poster-to-svg
 ```bash
 python3 tools/test_measure.py && python3 tools/test_svgkit.py && python3 tools/test_bands.py
 python3 tools/regress.py        # re-measure every solved poster (run from the site)
+python3 tools/roundtrip.py      # draw posters in known faces, convert, grade every stage
+python3 tools/bench_fonts.py    # identify known faces from degraded specimens
 ```

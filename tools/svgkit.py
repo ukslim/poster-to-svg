@@ -90,6 +90,25 @@ class Face:
         return hi - lo
 
 
+def top_ratio(face, text):
+    """Height of the tallest letter of `text` in this face, over the em.
+
+    What band-finding measures as a line's "cap" is the top of its tallest
+    glyph-sized ink: the capitals in capitals, but the ascenders (l, h, d, t)
+    in mixed case -- which in most faces stand 5-10% above the H. Sizing a
+    mixed-case line as though that were the cap height set every one of them
+    about 8% too large; the round trip on synthetic posters showed it. So size
+    by the letters the line actually has. Leaves out what the measurement
+    leaves out: accented letters and i/j (their marks are separate specks),
+    and punctuation.
+
+    Works with svgkit.Face and catalogue.RecordFace alike.
+    """
+    tops = [face.bounds(c)[3] for c in text
+            if c.isascii() and c.isalnum() and c not in 'ij' and face.has(c)]
+    return (max(tops) / face.upem) if tops else face.cap_ratio()
+
+
 # ------------------------------------------------------------- font matching
 def aspect_ratios(face, measured):
     """measured = {'T': (w_px, h_px), ...} straight off the original.

@@ -9,7 +9,7 @@ the two mirror-image cases -- white type knocked out of a navy panel, and
 ultra-black type whose letters fill their own box -- must not be confused.
 Synthetic images only; negligible cost.
 """
-import glob, os, sys
+import os, sys
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
@@ -28,14 +28,13 @@ def check(name, ok, detail=''):
         fails.append(name)
 
 
-def font(pattern, size):
-    hits = sorted(glob.glob(os.path.join(HERE, '..', 'fonts', pattern)))
-    if not hits:
-        hits = ['/System/Library/Fonts/Helvetica.ttc']
-    return ImageFont.truetype(hits[0], size)
+def font(family, weight, size):
+    from fontfetch import fetch
+    from catalogue import SPECIMEN
+    return ImageFont.truetype(fetch(family, weight, text=SPECIMEN), size)
 
 
-def page(text, fg, bg, paper=(250, 246, 238), size=40, face='Inter-700.ttf',
+def page(text, fg, bg, paper=(250, 246, 238), size=40, face=('Inter', 700),
          panel=True, h=200, base=120):
     """A 900xh page: `text` in `fg` on a panel of `bg` sitting on `paper`.
     Softened slightly, as a generated bitmap is."""
@@ -43,7 +42,7 @@ def page(text, fg, bg, paper=(250, 246, 238), size=40, face='Inter-700.ttf',
     d = ImageDraw.Draw(im)
     if panel:
         d.rectangle([20, 30, 880, h - 30], fill=bg)
-    d.text((60, base), text, font=font(face, size), fill=fg, anchor='ls')
+    d.text((60, base), text, font=font(*face, size), fill=fg, anchor='ls')
     return np.array(im.filter(ImageFilter.GaussianBlur(0.6))).astype(int)
 
 
@@ -102,7 +101,7 @@ check('navy gaps between white letters are a ground', seg == 'ground', repr(seg)
 
 # Ultra-black condensed capitals fill most of their own box, but paper
 # surrounds them: they are letters, not a ground.
-a = page('CARVER', (0, 0, 0), (0, 0, 0), size=150, face='Anton-*.ttf', panel=False,
+a = page('CARVER', (0, 0, 0), (0, 0, 0), size=150, face=('Anton', 400), panel=False,
          h=300, base=220)
 seg = resegment(a, detected_runs(a, (0, 0, 0), rows=(0, 300)), '#000000')
 check('ultra-black headline is not a ground', isinstance(seg, tuple), repr(seg)[:60])

@@ -12,8 +12,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from svgkit import (Face, render_line, render_glyph, pil_font,  # noqa: E402
                     has_shaping, kern_pairs)
 
-FONTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'fonts')
-KERNED = os.path.join(FONTS, 'texgyreheros-bold.otf')
+# A face with plenty of kerning: Arimo is metric-compatible with Helvetica.
+from fontfetch import fetch  # noqa: E402
+KERNED = fetch('Arimo', 700)
 
 fails = []
 

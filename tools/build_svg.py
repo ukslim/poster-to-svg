@@ -27,7 +27,7 @@ import numpy as np
 from fontTools.ttLib import TTFont
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from svgkit import Face, subset_b64, face_css, data_uri, encode_image  # noqa: E402
+from svgkit import Face, subset_b64, face_css, data_uri, encode_image, top_ratio  # noqa: E402
 from solve_type import split_text  # noqa: E402
 
 def esc(t):
@@ -43,7 +43,25 @@ def esc(t):
     return ''.join(c if ord(c) < 128 else f'&#{ord(c)};' for c in t)
 
 
+def ensure_file(c):
+    """A stored solution names a cached subset; if the cache has been cleared,
+    fetch it again from the style the candidate records."""
+    if c.get('path') and os.path.exists(c['path']):
+        return c
+    r = c.get('record')
+    if not r or r.get('source') != 'google':
+        raise SystemExit(f"font file for {c['family']} is gone: {c.get('path')}")
+    from fontfetch import fetch
+    from catalogue import SPECIMEN
+    return dict(c, path=fetch(r['family'], r['weight'], r.get('italic', False),
+                              r.get('wdth'), SPECIMEN), index=None)
+
+
 def pick(group, name):
+    return ensure_file(_pick(group, name))
+
+
+def _pick(group, name):
     """Resolve a --face override against a group's candidate list.
 
     A system font winning is informative, not an error: it says the generator
@@ -63,11 +81,31 @@ def pick(group, name):
         raise SystemExit('no embeddable candidate; widen the corpus')
     if name.startswith('#'):
         return cands[int(name[1:]) - 1]
-    for c in cands:
-        if name.lower() in (c['family'] + ' ' + c['sub']).lower():
-            return c
-    raise SystemExit(f'no candidate matching {name!r}; have: '
-                     + ', '.join(f"{c['family']} {c['sub']}" for c in cands))
+    if ':' not in name:
+        for c in cands:
+            if name.lower() in (c['family'] + ' ' + c['sub']).lower():
+                return c
+    # Not on the shortlist: any style in the catalogue will do, as
+    # "Family", "Family:600" or "Family:600i". Someone who has looked at the
+    # poster and knows the face should not be limited to what the ranking kept.
+    return from_catalogue(name, group)
+
+
+def from_catalogue(name, group=None):
+    import catalogue
+    fam, _, style = name.partition(':')
+    italic = style.endswith('i')
+    want = int(style.rstrip('i')) if style.rstrip('i').isdigit() else None
+    hits = [r for r in catalogue.load() if r['family'].lower() == fam.strip().lower()
+            and bool(r.get('italic')) == italic and not r.get('wdth')]
+    if not hits:
+        raise SystemExit(f'no face {name!r} in the shortlist or the catalogue')
+    r = min(hits, key=lambda r: abs(r['weight'] - (want or 400)))
+    path, index = catalogue.face_file(r)
+    print(f"  (using {catalogue.label(r)} from the catalogue)")
+    return dict(family=r['family'], sub=catalogue.label(r)[len(r['family']) + 1:],
+                weight=r['weight'], embed=r['embed'], path=path, index=index,
+                cap_ratio=r['cap'] / r['upem'])
 
 
 def obstacles(sol, shapes=None):
@@ -151,13 +189,17 @@ def place(sol, chosen, shapes=None):
             # own turns a pixel of noise into a visibly odd line. Unify them --
             # but only when the bands agree to start with, so a designer who
             # really did step the sizes still gets what they drew.
-            caps = [lines[bi]['cap'] for bi in a['bands']]
-            unified = (float(np.median(caps))
-                       if len(caps) > 1 and max(caps) <= 1.12 * min(caps) else None)
+            # Each band's size from its own tallest letter (see top_ratio),
+            # then unify the SIZES: a band topped by capitals and one topped
+            # by ascenders measure different "caps" at one size.
+            own = [lines[bi]['cap'] / top_ratio(face, part)
+                   for bi, part in zip(a['bands'], parts)]
+            unified = (float(np.median(own))
+                       if len(own) > 1 and max(own) <= 1.12 * min(own) else None)
             sized = []
-            for bi, part in zip(a['bands'], parts):
+            for (bi, part), size0 in zip(zip(a['bands'], parts), own):
                 b = lines[bi]
-                size = (unified or b['cap']) / c['cap_ratio']
+                size = unified or size0
                 # Deliberate tracking is part of the design, so it is set --
                 # but only where the measurement found it wide AND even, never
                 # to make up a width. The amount is what this face needs to

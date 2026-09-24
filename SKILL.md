@@ -150,29 +150,69 @@ the smooth dark lower part of the picture and measured 0.46, well under 5 -- but
 the type is still painted into an illustration, which is a skip. The number
 catches texture, not subject; your one look at the poster decides.
 
-## Reading the solver's report
+## Choosing the face
+
+The candidates come from the whole Google Fonts catalogue (~6,500 styles,
+`catalogue.py`), ranked on three kinds of evidence:
+
+- **metrics** -- each line's natural width in the face at the measured cap
+  height, and how consistently one face explains every line in the group
+- **features** -- stroke weight and contrast, slant, the squareness of O and
+  the width of every letter, measured on the poster's own glyphs and on the
+  face the same way (`typefeatures.py`)
+- **character** -- what the face is *like*, which no measurement sees: a
+  playbill wood type and a sans with the same proportions measure alike and
+  are nothing alike. You say it, in Google Fonts' own vocabulary, from the one
+  look you take at the poster:
+
+```bash
+python3 $S/character.py vocab          # the words: classes, themes, expressive
+python3 $S/character.py blocks {style} {event}   # every line cut out, labelled
+python3 $S/convert.py mid_century_modern_graphic gig \
+  --character headliner="Sans 90, Loud 80, Vintage 60, Playful 5" \
+  --character date="Sans 90, Business 60, Playful 10"
+```
+
+A brief is keyed by a copy line or a face group and applies to that line's
+whole group. Name the 2-4 things that decide it. Prefer a broad class (`Sans`,
+`Serif`, `Slab`, `Script`) unless the sub-class is plain; a theme (`Woodtype`,
+`Art Deco`, `Pixel`, `Stencil`...) when the face has one; and the expressive
+words that separate it from its look-alikes (`Playful 5` is what keeps a comic
+face out). Character is a gate, not a referee: a roughly right family costs
+nothing, and shape decides between near neighbours; a family of the wrong kind
+is pushed far down however well it measures.
 
 ```
 [display]  headliner
-  confidence low (margin 0.32)   shape glyphs: OHDTLE
-    Cinzel     Regular  w400  width 0.837 spread 0.000 stem_err 0.1377 shape 0.7821  => 1.371
-    Bitter     Thin     w400  width 0.881 spread 0.000 stem_err 0.0651 shape 1.2924  => 1.810
-    ! footer: ratio 0.895 horizontal_squash -> do NOT reproduce; set at natural width
+  confidence low (margin 0.0)   shape glyphs: RCAOVHDTEF
+  brief: Sans 90, Loud 80, Vintage 60, Playful 5
+  measured: weight 0.186  contrast 0.945  slant 0.0  square 0.828
+    Anton        400  w400  width 1.007 spread 0.000 feat 1.023 char 0.144 shape 1.0075  => 1.525
 ```
 
 | column | meaning |
 |---|---|
-| `width` | measured width ÷ the face's natural width at the measured cap height. ~1.00 is the face fitting without help |
+| `width` | measured width / the face's natural width at the measured cap. ~1.00 is the face fitting unaided |
 | `spread` | how consistently one face explains *every* line in the group. Low is good |
-| `stem_err` | stem weight vs the original's. Scaling cannot fake this |
-| `shape` | chamfer distance between real letterforms, per glyph. **The strongest signal**: under ~1.0 is the same letterform, over ~2.5 is a different one |
-| `shape glyphs` | which glyphs it could actually compare. Few glyphs = weak evidence, treat the ranking with suspicion |
+| `feat` | feature distance: weight, contrast, slant, letter proportions. Low is good |
+| `char` | mismatch with your brief, 0-1; free under 0.3 |
+| `shape` | chamfer distance between real letterforms, per glyph. Under ~1.0 is the same letterform, over ~2.5 a different one |
+| `shape glyphs` | which glyphs were compared. `NONE` means the ranking ran on width and features only: say so and look |
+| `measured` | the poster's own features for the group, to check a candidate against |
 
-`[id-only]` marks a system font. Useful for *identifying* a face — Helvetica,
-Arial, Futura and Didot often are what the generator imitated — but licensed,
-so never embedded. The builder skips past them to the best open candidate and
-says which one it stood in for, so a system font winning is information, not a
-problem (TeX Gyre Heros is Helvetica to within ~1%).
+`[id-only]` marks a system font (Helvetica, Futura, Didot...): useful for
+*identifying* what the generator imitated, never embedded; the builder skips
+to the best open face.
+
+Confidence is honestly low most of the time: faces that fit a line to a few
+percent are common. **Look at the contact sheet** -- the original line beside
+the top six, set in the same words at the same size -- and pick:
+
+```bash
+python3 $S/sheet.py /tmp/p2svg-{style}-{event}/solution.json   # -> faces.png
+python3 $S/convert.py {style} {event} --face display=#3
+python3 $S/convert.py {style} {event} --face body="PT Sans Narrow:700"   # any catalogue face
+```
 
 ### Adjudicating a low-confidence face
 
@@ -515,8 +555,12 @@ about the poster made it impossible.
 | `manifest.py` | status across all 200 |
 | `cannot_convert.py` | the escape hatch |
 | `flag_flawed.py` | mark a conversion known to be flawed: alert icon, hover for flaw and outlook (`--clear`, `--refresh`) |
-| `fetch_fonts.py` | fill the font cache (~260 faces) |
-| `build_index.py` | flatten variable fonts and index every face |
+| `catalogue.py` | describe every Google Fonts style (metrics, features, tags); `build`, `show` |
+| `fontfetch.py` | fetch a style as a subset of the characters needed, cached |
+| `character.py` | the character vocabulary, cut-out line blocks, brief scoring |
+| `sheet.py` | contact sheet: the original line beside the shortlist |
+| `typefeatures.py`, `glyphs.py`, `linemask.py` | feature measurement, glyph segmentation, two-colour line masks |
+| `bench_fonts.py` | font-identification benchmark on degraded known faces |
 | `overlay.py` | draw the band assignment on the poster (`--vs-solution` for stored vs current) |
 | `audit.py` | per-line check of a finished SVG against the original's intent |
 | `regress.py` | re-measure every solved poster; report changed assignments and the judged score |
@@ -526,7 +570,7 @@ about the poster made it impossible.
 Set up on a fresh clone (the cache and index are gitignored):
 
 ```bash
-python3 $S/fetch_fonts.py && python3 $S/build_index.py
+python3 $S/catalogue.py build
 ```
 
 **PIL cannot kern.** Without libraqm its layout ignores GPOS entirely, so a
