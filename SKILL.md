@@ -212,6 +212,7 @@ the top six, set in the same words at the same size -- and pick:
 python3 $S/sheet.py /tmp/p2svg-{style}-{event}/solution.json   # -> faces.png
 python3 $S/convert.py {style} {event} --face display=#3
 python3 $S/convert.py {style} {event} --face body="PT Sans Narrow:700"   # any catalogue face
+python3 $S/convert.py {style} {event} --face date="PT Sans Narrow:700"   # one line, its own face
 ```
 
 ### Adjudicating a low-confidence face

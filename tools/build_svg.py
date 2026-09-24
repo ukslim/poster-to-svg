@@ -775,6 +775,20 @@ def build_file(sol, out, faces=(), artwork='none', workdir='/tmp', title=''):
     `faces` are `group=Name` overrides, as on the command line.
     """
     overrides = dict(x.split('=', 1) for x in faces)
+    # An override may name a copy line instead of a group: that line leaves
+    # its group and is set in a face of its own -- one date in a semibold
+    # where the rest of the small print is regular.
+    for key in [k for k in overrides if k not in sol['groups']]:
+        home = next((g for g, v in sol['groups'].items() if key in v['lines']), None)
+        if home is None:
+            raise SystemExit(f'--face {key}=...: no face group or copy line {key!r}')
+        parent = sol['groups'][home]
+        parent['lines'] = [k for k in parent['lines'] if k != key]
+        sol['groups'][key] = dict(parent, lines=[key],
+                                  distortions=[d for d in parent.get('distortions', [])
+                                               if d['key'] == key])
+        if not parent['lines']:
+            del sol['groups'][home]
     chosen = {g: pick(sol['groups'][g], overrides.get(g)) for g in sol['groups']}
     svg = build(sol, chosen, artwork, workdir, title)
     open(out, 'w').write(svg)
