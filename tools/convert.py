@@ -45,6 +45,44 @@ def knobs(a, stored):
     return k
 
 
+def composite(s, work, width=420):
+    """One image for the one look a build needs: the poster with every band
+    numbered and labelled with its copy line, the rebuilt SVG beside it, and
+    the face contact sheet below. -> path."""
+    from PIL import Image
+    from overlay import panel
+    from sheet import group_sheet
+    ov = panel(s['image'], s['lines'], s['assigned'], width, 'original, as assigned')
+    rd = Image.open(os.path.join(work, 'render.png')).convert('RGB')
+    rd = rd.resize((width, int(rd.height * width / rd.width)))
+    top = Image.new('RGB', (2 * width + 8, max(ov.height, rd.height)), 'white')
+    top.paste(ov, (0, 0))
+    top.paste(rd, (width + 8, 0))
+    parts = [top]
+    try:
+        # contact sheets, two to a row at half width: the top three faces of
+        # each group beside the original line
+        sheets = [sh for sh in (group_sheet(s, g, n=3) for g in s['groups']) if sh is not None]
+        half = width + 4
+        sheets = [sh.resize((half, int(sh.height * half / sh.width))) for sh in sheets]
+        for i in range(0, len(sheets), 2):
+            row = sheets[i:i + 2]
+            r = Image.new('RGB', (2 * width + 8, max(x.height for x in row)), 'white')
+            for j, x in enumerate(row):
+                r.paste(x, (j * half, 0))
+            parts.append(r)
+    except Exception:
+        pass
+    img = Image.new('RGB', (2 * width + 8, sum(p.height + 6 for p in parts)), '#DDDDDD')
+    y = 0
+    for p in parts:
+        img.paste(p, (0, y))
+        y += p.height + 6
+    path = os.path.join(work, 'look.png')
+    img.save(path)
+    return path
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('style')
@@ -139,6 +177,7 @@ def main():
 
     from svgkit import render_svg
     render_svg(out, os.path.join(work, 'render.png'), *s['size'], workdir=work)
+    look = composite(s, work)
     # Read the finished SVG back and say what looks odd. Deliberately the last
     # word rather than a gate: everything it raises is suspicious rather than
     # certainly wrong, and it prints the measurement that would explain each
@@ -162,7 +201,7 @@ def main():
     shutil.copy(out, site_svg)
     s['image'] = src
     json.dump(s, open(site_soln, 'w'), indent=1)
-    print(f'\n-> {site_svg}\n   solution: {site_soln}\n   render: {work}/render.png')
+    print(f'\n-> {site_svg}\n   solution: {site_soln}\n   look at: {look}')
 
 
 if __name__ == '__main__':
