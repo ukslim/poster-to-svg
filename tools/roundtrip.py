@@ -27,6 +27,7 @@ and every stage is graded against what was drawn:
             the face is right
   case      capitals where capitals were drawn, and not where they were not
   track     letter-spacing set where it was drawn, and not where it was not
+  split     a wrapped line breaks at the words the original broke at
   audit     audit.py's leads on the result: alignment, ghosts, damage
 
 It cannot imitate a generator's drifting letterforms, so passing here is
@@ -128,7 +129,8 @@ class Page:
                 self.dr.text((x, b), part, font=fnt, fill=colour, anchor='ls')
             boxes.append([int(x + bb[0]), int(b + bb[1]), int(x + bb[0] + w), int(b + bb[3])])
             b += int(cap * 1.3)
-        self.truth[key] = dict(text=text, boxes=boxes, cap=cap, size=round(size, 2),
+        self.truth[key] = dict(text=text, parts=list(parts), boxes=boxes, cap=cap,
+                               size=round(size, 2),
                                family=rec['family'], weight=rec['weight'],
                                italic=bool(rec.get('italic')), upper=text.isupper(),
                                track=track_em, align=align, reversed=reversed_,
@@ -165,7 +167,11 @@ def draw_gig(rng, copy, d, t, it):
     light = (250, 248, 240)
     P.line('date', maybe_upper(rng, txt['date'], 0.3), t, 40, 1240, x0, x1, align,
            colour=light, reversed_=True)
-    P.line('venue', txt['venue'], t, 28, 1295, x0, x1, align, colour=light, reversed_=True)
+    venue_parts = (txt['venue'].split(', ', 1) if rng.random() < 0.4 else None)
+    if venue_parts:
+        venue_parts = [venue_parts[0] + ',', venue_parts[1]]
+    P.line('venue', txt['venue'], t, 26 if venue_parts else 28, 1290, x0, x1, align,
+           colour=light, reversed_=True, parts=venue_parts)
     P.line('tickets', txt['tickets'], t, 26, 1395, x0, x1, align)
     P.line('ticket_source', txt['ticket_source'], t, 22, 1440, x0, x1, align)
     P.line('footer', txt['footer'], t, 22, 1485, x0, x1, align)
@@ -182,8 +188,12 @@ def draw_fete(rng, copy, d, t, it):
     cap = rng.randint(90, 130)
     y = P.line('title', title, d, cap, 60 + cap, x0, x1, align,
                parts=[words[0], ' '.join(words[1:])])
-    y = P.line('date', maybe_upper(rng, txt['date'], 0.2), t, 36, y + 20, x0, x1, align)
-    y = P.line('venue', txt['venue'], t, 26, y + 5, x0, x1, align)
+    date = maybe_upper(rng, txt['date'], 0.2)
+    dparts = [date.split(', ')[0] + ',', date.split(', ', 1)[1]] if rng.random() < 0.5 else None
+    y = P.line('date', date, t, 36, y + 20, x0, x1, align, parts=dparts)
+    vparts = ([txt['venue'].split(', ')[0] + ',', txt['venue'].split(', ', 1)[1]]
+              if rng.random() < 0.5 else None)
+    y = P.line('venue', txt['venue'], t, 26, y + 5, x0, x1, align, parts=vparts)
     ben_face = it if (it and rng.random() < 0.7) else t
     y = P.line('beneficiary', txt['beneficiary'], ben_face, 22, y + 10, x0, x1, align)
     # an artwork band between the header and the list, a hole cut in it
@@ -232,7 +242,10 @@ def draw_fete(rng, copy, d, t, it):
         y += 10 + 4 * step
     y = P.line('footer0', maybe_upper(rng, txt['footer0'], 0.3), t, 26, max(y + 40, 1400),
                x0, x1, align)
-    P.line('footer1', txt['footer1'], t, 18, y + 12, x0, x1, align)
+    f1 = txt['footer1']
+    f1parts = ([' '.join(f1.split()[:3]), ' '.join(f1.split()[3:])]
+               if rng.random() < 0.4 else None)
+    P.line('footer1', f1, t, 18, y + 12, x0, x1, align, parts=f1parts)
     return P
 
 
@@ -273,7 +286,7 @@ def svg_texts(svg):
 def grade(sol, svg_path, truth, workdir):
     L = sol['lines']
     got = {a['key']: [L[b] for b in a['bands']] for a in sol['assigned']}
-    card = {k: [0, 0] for k in ('assign', 'face', 'size', 'case', 'track')}
+    card = {k: [0, 0] for k in ('assign', 'face', 'size', 'case', 'track', 'split')}
     notes = []
 
     # assign: every drawn line on the band it was drawn in
@@ -351,6 +364,21 @@ def grade(sol, svg_path, truth, workdir):
                     notes.append(f'size: {key} {err:+.0%}')
             # every band of a wrapped line is graded for case and tracking
 
+    # split: a wrapped line breaks at the words the original broke at
+    norm = lambda t: ' '.join(t.lower().split())  # noqa: E731
+    for key, tr in truth.items():
+        if len(tr['parts']) < 2:
+            continue
+        card['split'][1] += 1
+        got = [norm(t['text']) for base in tr['bases'] for t in texts
+               if abs(t['y'] - base) < 0.4 * tr['cap']]
+        want = [norm(p) for p in tr['parts']]
+        if got[:len(want)] == want:
+            card['split'][0] += 1
+        else:
+            notes.append(f"split: {key} drawn {' / '.join(tr['parts'])!r}, set "
+                         f"{' / '.join(got)!r}")
+
     # audit leads on the result
     from audit import audit
     leads = audit(svg_path, sol, workdir)
@@ -410,14 +438,14 @@ def one(job):
 
 
 def totals(results):
-    tot = {k: [0, 0] for k in ('assign', 'face', 'size', 'case', 'track')}
+    tot = {k: [0, 0] for k in ('assign', 'face', 'size', 'case', 'track', 'split')}
     tot['audit'] = {}
     built = 0
     for _, _, card, _ in results:
         if not card:
             continue
         built += 1
-        for k in ('assign', 'face', 'size', 'case', 'track'):
+        for k in ('assign', 'face', 'size', 'case', 'track', 'split'):
             tot[k][0] += card[k][0]
             tot[k][1] += card[k][1]
         for k, v in card['audit'].items():
@@ -428,7 +456,8 @@ def totals(results):
 
 def show(tot):
     parts = [f"built {tot['built'][0]}/{tot['built'][1]}"]
-    parts += [f'{k} {tot[k][0]}/{tot[k][1]}' for k in ('assign', 'face', 'size', 'case', 'track')]
+    parts += [f'{k} {tot[k][0]}/{tot[k][1]}' for k in ('assign', 'face', 'size', 'case', 'track', 'split')
+              if k in tot]
     au = ', '.join(f'{k} {v}' for k, v in tot['audit'].items() if v) or 'none'
     return '  '.join(parts) + f'   audit leads: {au}'
 

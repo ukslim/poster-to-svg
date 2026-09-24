@@ -237,9 +237,52 @@ def assign_copy(lines, copy, max_split=3, wrap_cap_ratio=1.3):
             continue
         assigned.append(dict(key=copy[ci]['key'], text=copy[ci]['text'],
                              bands=list(range(bi, bi + span))))
+    absorb_continuations(lines, assigned, wrap_cap_ratio)
     note = ('ok' if best_cost < 0.25
             else f'weak alignment (mean cost {best_cost:.2f})')
     return assigned, note, best_cost
+
+
+def absorb_continuations(lines, assigned, wrap_cap_ratio=1.3):
+    """Give an orphan band that continues a copy line to that line.
+
+    The aligner fits its width-per-character constant from its own answer, so
+    "the date on one band, the band under it skipped" can look as consistent
+    as "the date wrapped over both": the constant simply comes out low. Found
+    by the round trip, on a wrapped date and a wrapped venue. So check after
+    the fact: an unassigned band directly after a line's last band -- same
+    size, same margin, a leading below it -- whose width per character on its
+    own band is far below its siblings' is that line wrapping, and takes its
+    remaining words.
+    """
+    used = {b for a in assigned for b in a['bands']}
+    page = max((l['right'] for l in lines), default=1)
+
+    def k(a):
+        w = sum(eff_width(lines[b]) for b in a['bands'])
+        cap = float(np.mean([lines[b]['cap'] for b in a['bands']]))
+        return w / max(1, len(a['text'])) / max(1, cap)
+    for a in assigned:
+        nxt = a['bands'][-1] + 1
+        if nxt >= len(lines) or nxt in used or len(a['text'].split()) < 2:
+            continue
+        p, u = lines[a['bands'][-1]], lines[nxt]
+        if u['y0'] <= p['y1'] or u['baseline'] - p['baseline'] > 2.2 * max(p['cap'], u['cap']):
+            continue
+        if max(p['cap'], u['cap']) > wrap_cap_ratio * min(p['cap'], u['cap']):
+            continue
+        tol = 0.06 * page
+        if not (abs(u['left'] - p['left']) < tol
+                or abs((u['left'] + u['right']) / 2 - (p['left'] + p['right']) / 2) < tol
+                or abs(u['right'] - p['right']) < 0.03 * page):
+            continue
+        # siblings: other lines of about the same size
+        sib = [k(b) for b in assigned if b is not a and max(
+            lines[b['bands'][0]]['cap'], p['cap']) <= 1.4 * min(lines[b['bands'][0]]['cap'], p['cap'])]
+        if len(sib) < 2 or k(a) >= 0.75 * float(np.median(sib)):
+            continue
+        a['bands'].append(nxt)
+        used.add(nxt)
 
 
 

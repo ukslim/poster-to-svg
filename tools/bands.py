@@ -370,6 +370,7 @@ def find_lines(img_path, min_glyphs=2, solid_radius=24,
             # holds for any colour mask: where the poster's ground is itself a
             # colour -- zagreb's yellow upper half -- that colour shows between
             # small black letters and is measured as coloured "type".
+            suspect = False
             if ok and colour != 'dark':
                 y0_, y1_ = int(min(r[2] for r in runs)), int(max(r[3] for r in runs))
                 # Ink of any OTHER colour, not just black: the counters of red
@@ -408,7 +409,12 @@ def find_lines(img_path, min_glyphs=2, solid_radius=24,
                         > 0.5 * (lm['right'] - lm['left'])
                         for l in lines)
                     if widest < 0.6 * box.shape[1] and not ground_here:
-                        ok, why = False, f'counters of dark lettering ({inked:.0%} dark ink)'
+                        # Only a suspect: counters are holes INSIDE a line of
+                        # other-coloured lettering, so whether there is one is
+                        # decided once every colour has been read (below). A
+                        # red panel with white type knocked out of it looks
+                        # the same here, and has no red lettering over it.
+                        suspect = f'counters of dark lettering ({inked:.0%} dark ink)'
             if not ok:
                 rejected.append(dict(colour=colour, y0=int(lm['capTop']),
                                      y1=int(lm['base']), why=why))
@@ -469,13 +475,53 @@ def find_lines(img_path, min_glyphs=2, solid_radius=24,
                 runs=[[int(v) for v in r] for r in runs],
                 marker=marker,
                 track=tracking(runs, int(lm['cap'])),
+                counter_suspect=suspect,
             ))
     for ln in lines:
         ln['texture'] = round(background_texture(a, ln, masks[ln['colour']]), 2)
+    lines = settle_counter_suspects(lines, rejected)
     lines = reading_order(dedupe(lines, rejected))
     return dict(size=[w, h], paper='#%02X%02X%02X' % tuple(paper),
                 lines=lines, rejected=rejected, artwork=artwork,
                 knockouts=knockout_boxes(a, paper))
+
+
+def settle_counter_suspects(lines, rejected):
+    """Reject a light band as the counters of dark lettering only where a
+    line of other-coloured lettering actually lies over it.
+
+    Found by the round trip: the first line of a venue reversed out of a red
+    panel was rejected as "counters" -- its box full of red, the red in slivers
+    between the letters -- and the copy shuffled to fill the gap. The counters
+    case always has the lettering itself detected as a band; a panel is not.
+    """
+    kept = []
+    for l in lines:
+        why = l.pop('counter_suspect', False)
+        if not why:
+            kept.append(l)
+            continue
+        h, w = l['y1'] - l['y0'] + 1, l['right'] - l['left'] + 1
+        # ...and only a band shaped like one line of type survives: the rule
+        # had also been turning away coloured artwork (a 380px swoosh with a
+        # "cap" of 94 on contemporary_flat_illustration's gig).
+        # And only on a flat ground: type knocked out of a panel sits on a
+        # plain colour, while light specks in a photograph or an engraving
+        # (a microphone's highlights) sit on texture.
+        if h > 1.6 * l['cap'] or l['n_runs'] < 4 or l.get('texture', 0) > 4.0:
+            rejected.append(dict(colour=l['colour'], y0=l['cap_top'], y1=l['baseline'], why=why))
+            continue
+        over = any(
+            o is not l and o['colour'] != l['colour'] and not o.get('is_ground')
+            and not o.get('counter_suspect')
+            and min(o['y1'], l['y1']) - max(o['y0'], l['y0']) > 0.5 * h
+            and min(o['right'], l['right']) - max(o['left'], l['left']) > 0.5 * w
+            for o in lines)
+        if over:
+            rejected.append(dict(colour=l['colour'], y0=l['cap_top'], y1=l['baseline'], why=why))
+        else:
+            kept.append(l)
+    return kept
 
 
 def reading_order(lines, block_gap=3.0):

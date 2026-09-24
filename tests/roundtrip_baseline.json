@@ -1,28 +1,32 @@
 {
  "plain": {
   "assign": [
-   136,
+   137,
    138
   ],
   "face": [
-   122,
+   121,
    138
   ],
   "size": [
-   112,
-   115
+   108,
+   113
   ],
   "case": [
-   148,
-   148
+   162,
+   162
   ],
   "track": [
-   146,
-   148
+   158,
+   162
+  ],
+  "split": [
+   24,
+   25
   ],
   "audit": {
    "alignment": 0,
-   "ghost": 1,
+   "ghost": 0,
    "damage": 0,
    "leftover type": 0
   },
@@ -33,28 +37,32 @@
  },
  "briefs": {
   "assign": [
-   136,
+   137,
    138
   ],
   "face": [
-   135,
+   137,
    138
   ],
   "size": [
-   125,
+   122,
    129
   ],
   "case": [
-   148,
-   148
+   162,
+   162
   ],
   "track": [
-   146,
-   148
+   158,
+   162
+  ],
+  "split": [
+   24,
+   25
   ],
   "audit": {
    "alignment": 0,
-   "ghost": 1,
+   "ghost": 0,
    "damage": 0,
    "leftover type": 0
   },
