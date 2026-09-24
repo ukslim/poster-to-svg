@@ -176,8 +176,11 @@ def segment(arr, band, text):
         want_h = expected_holes(ch)
         if want_h is not None and holes(crop) != want_h:
             continue
+        # +-35% of the width the letter should have at this line's scale.
+        # Faces differ in proportion by less than that; a crop carrying its
+        # kerned neighbour (G and r touching, 40px where a G is 20) by more.
         w = crop.shape[1]
-        if abs(np.log(max(w, 1) / max(exp[ch] * scale, 1))) > 0.6:
+        if abs(np.log(max(w, 1) / max(exp[ch] * scale, 1))) > 0.3:
             continue
         if crop.sum() >= 12:
             out.append((ch, crop))

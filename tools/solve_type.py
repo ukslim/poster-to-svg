@@ -43,6 +43,9 @@ FEATURE_WEIGHT = 0.5
 # playbill wood type, a comic face for a sober grotesque -- is wrong however
 # well its widths and weight fit.
 CHARACTER_FREE = 0.3
+# How much the ink comparison in stage 2 counts: |log(fill ratio)| of 0.2 is
+# a weight step (400 against 600) on most faces.
+INK_WEIGHT = 3.0
 CHARACTER_WEIGHT = 8.0
 
 
@@ -61,46 +64,94 @@ def load_faces():
     return out
 
 
-def group_lines_by_face(assigned, lines):
+def group_lines_by_face(assigned, lines, arr=None):
     """Split logical lines into sets that plausibly share one face.
 
-    Posters overwhelmingly use a display face and a text face. Cap height
-    separates them; stem weight then catches a poster that sets its small
-    print in a second, lighter face.
-
-    Three tiers by cap, not two. A poster often sets something mid-sized -- a
-    date, a strapline -- between its headline and its small print, and a
+    First by size, in three tiers. A poster often sets something mid-sized --
+    a date, a strapline -- between its headline and its small print, and a
     two-way split files that with the headline. The group's width ratio is then
     the median of two lines at a 4:1 size ratio, which reads as a good fit
     while neither line fits: on bauhaus_modernist's fete the title wanted 0.65
     and the date 1.29, the pair averaged 0.97, and the face chosen on that set
     the title half as wide again as the poster did.
+
+    Then, within a tier, by what the type itself is: its slant and its stroke
+    weight, measured per line on the line's own two-colour mask (so a white
+    line on a panel measures like a black one). An italic beneficiary set
+    among upright small print is a third face; averaged in, its 10 degrees made
+    the whole group read as 5 degrees and an upright serif lost to a sans. Ink
+    density, which this replaces, split mid_century's white date from its
+    white venue because the detection mask had thinned it.
     """
     caps = [lines[a['bands'][0]]['cap'] for a in assigned]
     med = float(np.median(caps))
-    groups = {}
+    tiers = {}
     for a in assigned:
         cap = lines[a['bands'][0]]['cap']
         kind = ('display' if cap > 4.0 * med
                 else 'subhead' if cap > 1.8 * med else 'body')
-        groups.setdefault(kind, []).append(a)
+        tiers.setdefault(kind, []).append(a)
+    if arr is None:
+        return tiers
 
-    # A poster often sets its small print in a second, lighter weight. Ink
-    # density separates weights where stem width is too noisy to at small cap
-    # heights. Split only when the spread is wide enough to be real.
-    body = groups.get('body', [])
-    if len(body) >= 4:
-        dens = [lines[a['bands'][0]].get('density', 0) for a in body]
-        lo, hi = min(dens), max(dens)
-        if lo > 0 and hi / lo > 1.45:
-            cut = (lo + hi) / 2
-            heavy = [a for a, d in zip(body, dens) if d >= cut]
-            light = [a for a, d in zip(body, dens) if d < cut]
-            if len(heavy) >= 2 and len(light) >= 2:
-                groups['body'] = heavy
-                groups['body_light'] = light
-                _keep_siblings_together(groups, assigned)
+    groups = {}
+    for tier, members in tiers.items():
+        clusters = []          # [name, slant, weight, [lines]]
+        for a in members:
+            sl, wt = line_profile(a, lines, arr)
+            home = None
+            for c in clusters:
+                slant_ok = sl is None or c[1] is None or abs(sl - c[1]) <= 5.0
+                weight_ok = (wt is None or c[2] is None
+                             or max(wt, c[2]) / max(1e-6, min(wt, c[2])) <= 1.4)
+                if slant_ok and weight_ok:
+                    home = c
+                    break
+            if home is None:
+                name = tier
+                if clusters:
+                    first = clusters[0]
+                    if sl is not None and first[1] is not None and abs(sl - first[1]) > 5:
+                        name = f'{tier}_italic'
+                    elif wt and first[2]:
+                        name = f'{tier}_heavy' if wt > first[2] else f'{tier}_light'
+                    while name in [c[0] for c in clusters]:
+                        name += '2'
+                clusters.append([name, sl, wt, [a]])
+            else:
+                home[3].append(a)
+                if sl is not None:
+                    home[1] = sl if home[1] is None else (home[1] + sl) / 2
+                if wt is not None:
+                    home[2] = wt if home[2] is None else (home[2] + wt) / 2
+        for name, _, _, ms in clusters:
+            groups[name] = ms
+    _keep_siblings_together(groups, assigned)
     return groups
+
+
+def line_profile(a, lines, arr):
+    """(slant in degrees, stroke weight / cap) of one copy line, or None for
+    what could not be measured. Slant from the upright-stemmed glyphs the
+    segmenter can attribute; weight from the whole line's two-colour mask."""
+    from glyphs import segment
+    from typefeatures import slant, STEMMED
+    parts = a.get('parts') or split_text(a['text'], a['bands'], lines) or [a['text']]
+    slants, weights = [], []
+    for bi, part in zip(a['bands'], parts):
+        b = lines[bi]
+        for ch, m in segment(arr, b, part):
+            if ch in STEMMED:
+                v = slant(m)
+                if v is not None:
+                    slants.append(v)
+        m, _ = line_mask(arr, (b['left'], b['y0'], b['right'], b['y1']), b['rgb'], b.get('ground'))
+        if m is not None:
+            w = ridge_weight(m, b['cap'])
+            if w:
+                weights.append(w)
+    return (float(np.median(slants)) if len(slants) >= 2 else None,
+            float(np.median(weights)) if weights else None)
 
 
 def _keep_siblings_together(groups, assigned):
@@ -360,22 +411,43 @@ def stage2(cands, crops):
         return cands
     for c in cands:
         face = Face(c['face']['path'], index=c['face']['index'])
-        scores = []
+        scores, inks = [], []
         for ch, crop, _ in crops:
             if not face.has(ch):
                 continue
-            g = render_glyph(face, ch, crop.shape[0] / c['face']['cap_ratio'])
+            # Render the glyph at the crop's own height, so shape AND weight
+            # are compared at the poster's resolution. The catalogue's
+            # features are measured at a 120px cap; on 20px type a 1.6px
+            # stroke measures 2px there and every small line reads a weight
+            # too heavy. Here both sides are equally coarse.
+            x0, y0, x1, y1 = face.bounds(ch)
+            if y1 <= y0:
+                continue
+            g = render_glyph(face, ch, crop.shape[0] * face.upem / (y1 - y0))
             if g is None:
                 continue
-            scores.append(chamfer(crop, g > 128))
+            g = g > 128
+            ys, xs = np.nonzero(g)
+            if not len(xs):
+                continue
+            g = g[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
+            scores.append(chamfer(crop, g))
+            fc, fg = crop.mean(), g.mean()
+            if fc > 0 and fg > 0:
+                inks.append(abs(np.log(fc / fg)))
         if scores:
             c['shape'] = round(float(np.mean(scores)), 4)
+        if inks:
+            c['ink'] = round(float(np.mean(inks)), 4)
     seen = [c['shape'] for c in cands if c.get('shape') is not None]
     fallback = (float(np.mean(seen)) + 0.5) if seen else 3.0
     for c in cands:
         # Letterform first, then agreement across lines, then natural width --
         # width alone is the weakest signal because scaling can fake it.
+        # Ink: how much of its box each glyph fills, crop against render at
+        # the same size -- stroke weight at native resolution.
         c['score'] = round(c.get('shape', fallback) * 1.0
+                           + INK_WEIGHT * c.get('ink', 0.3)
                            + c['metric_score'], 4)
     cands.sort(key=lambda r: r['score'])
     return cands
@@ -505,7 +577,7 @@ def solve(image, event, keep=SHAPE_POOL, wrap_cap_ratio=1.3, assign=None,
                        'may be a paper panel in front. Look: if it is, pass '
                        f'--knockout {b[0]},{b[1]},{b[2]},{b[3]}'))
 
-    for kind, grp in group_lines_by_face(assigned, m['lines']).items():
+    for kind, grp in group_lines_by_face(assigned, m['lines'], a).items():
         crops = glyph_crops(grp, m['lines'], a)
         feats = group_features(grp, m['lines'], a, crops)
         brief = briefs_for(kind, grp, character)

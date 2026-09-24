@@ -17,7 +17,7 @@ from scipy import ndimage
 # Letters whose ink reaches cap height and whose stems are upright in an
 # upright face: the ones slant is read from.
 STEMMED = set('BDEFHIKLMNPRTbdhklpq')
-ROUND = set('OoQ0')
+ROUND = set('Oo0')   # not Q: its tail stretches the box
 XHEIGHT = set('acemnorsuvwxz')
 
 
@@ -119,9 +119,11 @@ def features(glyphs):
         if ch in ROUND:
             sq.append(squareness(m))
     med = lambda v: float(np.median(v)) if v else None  # noqa: E731
+    caps = [cap for _, _, cap in glyphs if cap]
     return dict(aspect={k: med(v) for k, v in aspect.items()},
                 height={k: med(v) for k, v in height.items()},
-                weight=med(ws), contrast=med(cs), slant=med(sl), square=med(sq))
+                weight=med(ws), contrast=med(cs), slant=med(sl), square=med(sq),
+                cap=med(caps))
 
 
 # How much each difference costs. Tuned against bench_fonts.py.
@@ -140,9 +142,20 @@ def distance(a, b, w=WEIGHTS):
     if common:
         parts['height'] = w['height'] * float(np.mean(
             [abs(np.log(a['height'][c] / b['height'][c])) for c in common]))
+    # Contrast needs hairlines, and small type has none to measure: at a
+    # 22px cap a serif's thin strokes are a pixel or two and the whole line
+    # reads monoline, which handed an upright serif's lines to a sans. Count
+    # contrast in full from a 64px cap, not at all below 24px. (The side
+    # measured at the lower resolution decides; the catalogue is at 120px.)
+    cap = min(c for c in (a.get('cap'), b.get('cap')) if c) if (a.get('cap') or b.get('cap')) else None
+    trust = 1.0 if cap is None else min(1.0, max(0.0, (cap - 24) / 40))
+    # Stroke weight survives small type better, but reads heavy there (a
+    # 1.6px stroke measures 2px); the shape stage compares ink at native size.
+    trust_w = 1.0 if cap is None else min(1.0, max(0.3, (cap - 16) / 48))
     for k in ('weight', 'contrast', 'square'):
         if a.get(k) is not None and b.get(k) is not None:
-            parts[k] = w[k] * abs(a[k] - b[k])
+            scale = trust if k == 'contrast' else trust_w if k == 'weight' else 1.0
+            parts[k] = w[k] * abs(a[k] - b[k]) * scale
     if a.get('slant') is not None and b.get('slant') is not None:
         parts['slant'] = w['slant'] * abs(a['slant'] - b['slant'])
     return sum(parts.values()), parts

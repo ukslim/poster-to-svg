@@ -435,6 +435,7 @@ def main():
     ap.add_argument('--suite', action='store_true',
                     help=f'the fixed seeds {SUITE[0]}..{SUITE[-1]}')
     ap.add_argument('--save-baseline', action='store_true')
+    ap.add_argument('--seeds', type=int, nargs='+', help='run these seeds (e.g. from the suite)')
     ap.add_argument('--n', type=int, default=6)
     ap.add_argument('--seed', type=int, default=1)
     ap.add_argument('--briefs', action='store_true',
@@ -448,7 +449,7 @@ def main():
     os.makedirs(os.path.join(site, 'assets', 'poster-examples'))
     os.symlink(os.path.join(real, '_data'), os.path.join(site, '_data'))
     os.symlink(os.path.join(real, '_includes'), os.path.join(site, '_includes'))
-    seeds = SUITE if a.suite else [a.seed * 1000 + i for i in range(a.n)]
+    seeds = (a.seeds or SUITE) if (a.suite or a.seeds) else [a.seed * 1000 + i for i in range(a.n)]
     with Pool(a.j) as pool:
         results = sorted(pool.map(one, [(s, site, a.briefs) for s in seeds]))
     for seed, head, card, notes in results:
