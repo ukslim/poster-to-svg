@@ -351,7 +351,13 @@ def split_text(text, bands, lines):
     n = len(bands)
     if len(words) < n:
         return None
-    widths = np.array([eff_width(lines[b]) for b in bands], float)
+    # A band holds about width / cap characters: a line set in two sizes
+    # ("THE ANCHOR ROOMS" over a smaller "14 Tallow Lane, ...") must not be
+    # divided by width alone, which gives the big line half the words.
+    # Better still, count the band's glyphs: runs are letters, give or take
+    # the ones that touch, and the error is shared by every band alike.
+    widths = np.array([lines[b].get('n_runs') or eff_width(lines[b]) / max(1, lines[b]['cap'])
+                       for b in bands], float)
     target = widths / widths.sum()
 
     best, best_cost = None, 1e9
@@ -634,6 +640,8 @@ def solve(image, event, keep=SHAPE_POOL, wrap_cap_ratio=1.3, assign=None,
     measure_opts['exclude'] = list(measure_opts.get('exclude') or []) + [box for _, box in arts]
     copy_all = copy
     copy = [c for c in copy if c['key'] not in art_keys]
+    # an art line is not assigned: drop any stored --assign for it
+    assign = [a for a in (assign or []) if a.partition('=')[0].strip() not in art_keys]
     m = find_lines(image, **measure_opts)
     frames, tilted_found = [], []
     for keys, box, angle in specs:
