@@ -49,6 +49,6 @@ ln -s ../../../poster-to-svg path/to/site/.claude/skills/poster-to-svg
 ```bash
 python3 tools/test_measure.py && python3 tools/test_svgkit.py && python3 tools/test_bands.py
 python3 tools/regress.py        # re-measure every solved poster (run from the site)
-python3 tools/roundtrip.py      # draw posters in known faces, convert, grade every stage
+python3 tools/roundtrip.py --suite   # 12 synthetic posters with known answers, graded against tests/roundtrip_baseline.json
 python3 tools/bench_fonts.py    # identify known faces from degraded specimens
 ```
