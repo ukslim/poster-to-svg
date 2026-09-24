@@ -27,6 +27,23 @@ def text_ink_mask(img_path, lines=None, **opts):
     paper = modal_colour(a)
     out = np.zeros(a.shape[:2], bool)
     m = {'lines': lines} if lines is not None else find_lines(img_path, **opts)
+    # Lines set on a slant are blanked in their own levelled frame, and the
+    # mask rotated back onto the poster.
+    framed = [ln for ln in m['lines'] if ln.get('frame')]
+    if framed:
+        import tempfile
+        from tilt import level, unlevel_mask
+        by = {}
+        for ln in framed:
+            by.setdefault(tuple(sorted(ln['frame'].items())), []).append(ln)
+        for key, lns in by.items():
+            frame = dict(key)
+            with tempfile.NamedTemporaryFile(suffix='.png') as t:
+                Image.fromarray(level(a, frame, fill=paper).clip(0, 255).astype('uint8')).save(t.name)
+                sub, _ = text_ink_mask(t.name, lines=[{k: v for k, v in ln.items() if k != 'frame'}
+                                                      for ln in lns], **opts)
+            out |= unlevel_mask(sub, frame)
+        m = {'lines': [ln for ln in m['lines'] if not ln.get('frame')]}
     raw = ink_masks(a, paper, opts.get('contrast', 40), opts.get('window', 61))
     anyink = np.zeros(a.shape[:2], bool)
     for _m in raw.values():

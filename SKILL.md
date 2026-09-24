@@ -22,7 +22,8 @@ measurement is wrong: fix it or record the poster as flawed.
 
 1. **Look once, and decide it can be converted.** View the poster. Take the
    escape hatch when the lettering is drawn rather than set (hand-lettered,
-   painted, woodcut, sprayed, collaged, warped to a shape), when it is part of a
+   painted, woodcut, sprayed, collaged, warped to a shape or into perspective;
+   type that is straight but on a slant converts, with `--tilted`), when it is part of a
    photograph or painting, or when there is no font-like type:
    ```bash
    python3 $S/cannot_convert.py assets/poster-svg/{style}-{event}-v2.svg \
@@ -99,6 +100,7 @@ measurement is wrong: fix it or record the poster as flawed.
 | `--character KEY=BRIEF` | the face's character, as a gate on the ranking |
 | `--face GROUP\|KEY=#N\|"Family:weight"` | choose a face; a copy key gives that line its own face |
 | `--case KEY=upper\|mixed` | case where the test is fooled |
+| `--tilted KEYS@X0,Y0,X1,Y1[@ANGLE]` | copy set on a slant (a banner, a rotated panel): name the lines and a box round them; the angle is measured. Warped or perspective type is still a skip |
 | `--knockout X0,Y0,X1,Y1` | a paper panel knocked out of a shape (reported as `possible_knockout`; right about 1 in 3, so look) |
 | `--artwork auto\|mask\|crop:..\|shapes:..\|none` | artwork treatment |
 | `--force`, `--fresh`, `--resolve-only` | build despite weak alignment; ignore stored knobs; solve only |
@@ -149,6 +151,7 @@ before it is kept:
 
 ```bash
 python3 $S/roundtrip.py --suite     # synthetic posters with known answers: the main gate
+python3 $S/roundtrip.py --suite --tilt   # the gig seeds with a slanted panel
 python3 $S/regress.py               # the 61 solved posters: what changed, judged score, pins
 python3 $S/test_measure.py && python3 $S/test_bands.py && python3 $S/test_svgkit.py
 ```

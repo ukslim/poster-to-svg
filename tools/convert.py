@@ -27,7 +27,7 @@ import sitepaths as poster_site  # noqa: E402
 DEFAULTS = dict(artwork='mask', face=[], solid_radius=24, rule_length=160,
                 rule_thick=5, min_glyphs=3, contrast=40, window=61,
                 wrap_cap_ratio=1.3, exclude=[], knockout=[], assign=[], character=[],
-                case=[])
+                case=[], tilted=[])
 # Ambiguities that mean the copy is on the wrong lines. Building then only
 # produces a confident-looking wrong poster.
 BLOCKING = ('weak_alignment', 'no_alignment')
@@ -118,6 +118,9 @@ def main():
     ap.add_argument('--case', action='append', default=[], metavar='KEY=upper|mixed',
                     help='say whether a copy line is set in capitals, where the '
                          'lettering defeats the automatic test; repeatable')
+    ap.add_argument('--tilted', action='append', default=[], metavar='KEYS@X0,Y0,X1,Y1[@ANGLE]',
+                    help='copy lines set on a slant, and the box they sit in, e.g. '
+                         'date,venue@120,900,980,1200; the angle is measured unless given')
     ap.add_argument('--keep', type=int, default=80)
     ap.add_argument('--fresh', action='store_true',
                     help='ignore the knobs stored with an earlier solution')
@@ -152,7 +155,7 @@ def main():
               rule_thick=k['rule_thick'], contrast=k['contrast'], window=k['window'],
               wrap_cap_ratio=k['wrap_cap_ratio'], assign=k['assign'],
               character=dict(c.split('=', 1) for c in k['character']),
-              case=dict(c.split('=', 1) for c in k['case']),
+              case=dict(c.split('=', 1) for c in k['case']), tilted=k['tilted'],
               exclude=[tuple(int(v) for v in x.split(',')) for x in k['exclude']])
     # Stored as points, not band numbers: re-measurement may renumber bands.
     k['assign'] = s['assign_points']

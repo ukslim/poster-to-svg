@@ -136,6 +136,8 @@ def segment(arr, band, text):
     """-> [(char, bool crop)] for the characters of `text` that one clean run
     each can be attributed to. `arr` is the poster as an RGB array; the crop
     is cut from the line's own two-colour mask, whatever its polarity."""
+    from tilt import pixels
+    arr = pixels(arr, band)
     runs = sorted(tuple(r) for r in band.get('runs') or [])
     chars = [c for c in text if not c.isspace()]
     steps = align(runs, chars)
@@ -228,6 +230,8 @@ def case_of(arr, band, text):
     mixed-case line reads as capitals -- and where an accent over FETE is
     taken for the capital line and everything else looks short.
     """
+    from tilt import pixels
+    arr = pixels(arr, band)
     runs = band.get('runs') or []
     chars = [c for c in text if not c.isspace()]
     spans = char_spans(runs, chars) if runs else None

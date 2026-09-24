@@ -86,5 +86,53 @@
    12,
    12
   ]
+ },
+ "plain+tilt": {
+  "assign": [
+   46,
+   48
+  ],
+  "face": [
+   44,
+   48
+  ],
+  "size": [
+   30,
+   31
+  ],
+  "case": [
+   55,
+   55
+  ],
+  "track": [
+   55,
+   55
+  ],
+  "split": [
+   8,
+   9
+  ],
+  "blank": [
+   41,
+   48
+  ],
+  "art": [
+   6,
+   6
+  ],
+  "tilt": [
+   12,
+   12
+  ],
+  "audit": {
+   "alignment": 0,
+   "ghost": 3,
+   "damage": 1,
+   "leftover type": 1
+  },
+  "built": [
+   6,
+   6
+  ]
  }
 }

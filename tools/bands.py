@@ -697,7 +697,22 @@ def dedupe(lines, rejected):
     kept = []
     # A band whose "ink" is really the ground between letters (see resegment)
     # loses to any band that found the letters, however many runs it has.
-    for cand in sorted(lines, key=lambda l: (l.get('is_ground', False),
+    # ...and a band much taller than its own cap height is not one line of
+    # type but a panel or a stack (a slanted panel narrower than the page is
+    # not classed as artwork, and would otherwise outvote its own letters).
+    # Only against a band of another colour -- a panel and the letters
+    # knocked out of it; a tall band of the type's own colour may be two
+    # sizes of one line merged (risograph's "with support from / Mena Grace"),
+    # and dropping it loses the smaller.
+    def tall(l):
+        # a panel is mostly ink; two merged lines of type are not
+        if (l['y1'] - l['y0'] + 1) <= 1.8 * max(1, l['cap']) or l.get('density', 0) < 0.5:
+            return False
+        return any(o is not l and o['colour'] != l['colour']
+                   and overlap(o, l, 'y0', 'y1') > 0.5 and overlap(o, l, 'left', 'right') > 0.5
+                   and (o['y1'] - o['y0'] + 1) <= 1.8 * max(1, o['cap'])
+                   for o in lines)
+    for cand in sorted(lines, key=lambda l: (l.get('is_ground', False), tall(l),
                                              -l['n_runs'] * l['cap'])):
         dup = None
         for k in kept:

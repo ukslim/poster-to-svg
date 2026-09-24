@@ -47,6 +47,7 @@ import catalogue  # noqa: E402
 
 W, H = 1024, 1536
 SUITE = list(range(100, 112))      # 6 gig and 6 fete, alternating
+# --tilt runs the gig seeds of the suite with their date/venue panel on a slant
 BASELINE = os.path.join(os.path.dirname(HERE), 'tests', 'roundtrip_baseline.json')
 
 
@@ -107,6 +108,40 @@ class Page:
         self.art_im = Image.new('RGB', (W, H), self.paper)
         self.art = Both(self.dr, ImageDraw.Draw(self.art_im))
         self.truth = {}
+
+    tilt = False
+
+    def begin_layer(self):
+        """Draw what follows on transparent layers (poster and artwork),
+        to be rotated as one by end_layer."""
+        saved = (self.im, self.dr, self.art_im, self.art)
+        self.im = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+        self.dr = ImageDraw.Draw(self.im)
+        self.art_im = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+        self.art = Both(self.dr, ImageDraw.Draw(self.art_im))
+        return saved
+
+    def end_layer(self, saved, angle, centre, keys):
+        """Rotate the layers by `angle` (PIL sense, counter-clockwise) about
+        `centre` and composite them. The truth for `keys` stays in the drawing's
+        own coordinates -- which are the levelled frame the tool should find --
+        plus the angle and the box on the poster."""
+        im, art = self.im, self.art_im
+        self.im, self.dr, self.art_im, self.art = saved
+        for src, dst in ((im, 'im'), (art, 'art_im')):
+            rot = src.rotate(angle, resample=Image.BICUBIC, center=centre)
+            base = getattr(self, dst).convert('RGBA')
+            base.alpha_composite(rot)
+            setattr(self, dst, base.convert('RGB'))
+        self.dr = ImageDraw.Draw(self.im)
+        self.art = Both(self.dr, ImageDraw.Draw(self.art_im))
+        ys, xs = __import__('numpy').nonzero(__import__('numpy').array(
+            art.rotate(angle, center=centre))[:, :, 3] > 0)
+        box = [int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max())]
+        for k in keys:
+            self.truth[k]['tilt'] = angle
+            self.truth[k]['poster_box'] = box
+        self.tilted = (keys, box)
 
     @staticmethod
     def measure(fnt, text, track):
@@ -183,17 +218,24 @@ def draw_gig(rng, copy, d, t, it):
     cap = rng.randint(100, 150)
     y = P.line('headliner', head, d, cap, 140 + cap, x0, x1, align, parts=parts)
     P.line('support', maybe_upper(rng, txt['support'], 0.25), t, 32, y + 10, x0, x1, align)
-    # the date and venue reversed out of a panel
-    P.art.rectangle([0, 1170, W, 1335], fill=rng.choice([(20, 110, 110), (170, 40, 40),
-                                                        (30, 50, 110)]))
+    # the date and venue reversed out of a panel -- on a slant, for a tilt run
+    panel_col = rng.choice([(20, 110, 110), (170, 40, 40), (30, 50, 110)])
+    tilt = rng.choice([-1, 1]) * rng.uniform(5, 12) if P.tilt else 0.0
+    layers = P.begin_layer() if tilt else None
+    # narrow enough that its rotated corners clear the ticket lines below
+    px0, px1 = (150, W - 150) if tilt else (0, W)
+    P.art.rectangle([px0, 1170, px1, 1335], fill=panel_col)
     light = (250, 248, 240)
-    P.line('date', maybe_upper(rng, txt['date'], 0.3), t, 40, 1240, x0, x1, align,
+    tx0, tx1 = (px0 + 30, px1 - 30) if tilt else (x0, x1)
+    P.line('date', maybe_upper(rng, txt['date'], 0.3), t, 40, 1240, tx0, tx1, align,
            colour=light, reversed_=True)
     venue_parts = (txt['venue'].split(', ', 1) if rng.random() < 0.4 else None)
     if venue_parts:
         venue_parts = [venue_parts[0] + ',', venue_parts[1]]
-    P.line('venue', txt['venue'], t, 26 if venue_parts else 28, 1290, x0, x1, align,
+    P.line('venue', txt['venue'], t, 26 if venue_parts else 28, 1290, tx0, tx1, align,
            colour=light, reversed_=True, parts=venue_parts)
+    if tilt:
+        P.end_layer(layers, tilt, (W / 2, (1170 + 1335) / 2), ['date', 'venue'])
     P.line('tickets', txt['tickets'], t, 26, 1395, x0, x1, align)
     P.line('ticket_source', txt['ticket_source'], t, 22, 1440, x0, x1, align)
     P.line('footer', txt['footer'], t, 22, 1485, x0, x1, align)
@@ -310,10 +352,24 @@ def svg_texts(svg):
 
 
 def grade(sol, svg_path, truth, workdir, art=None):
+    notes = []
+    L = sol['lines']
     L = sol['lines']
     got = {a['key']: [L[b] for b in a['bands']] for a in sol['assigned']}
-    card = {k: [0, 0] for k in ('assign', 'face', 'size', 'case', 'track', 'split', 'blank')}
-    notes = []
+    card = {k: [0, 0] for k in ('assign', 'face', 'size', 'case', 'track', 'split', 'blank', 'tilt')}
+    # tilt: a slanted line is set in a frame at the angle it was drawn at
+    for key, tr in truth.items():
+        if 'tilt' not in tr:
+            continue
+        card['tilt'][1] += 1
+        fr = [L[b].get('frame') for b in (next((a['bands'] for a in sol['assigned']
+                                               if a['key'] == key), []))]
+        # the tool levels with rotate(a); the drawing was rotated by tilt, so a = -tilt
+        if fr and fr[0] and abs(fr[0]['angle'] + tr['tilt']) < 1.0:
+            card['tilt'][0] += 1
+        else:
+            notes.append(f"tilt: {key} drawn at {tr['tilt']:.1f} deg, measured "
+                         f"{(-fr[0]['angle']) if fr and fr[0] else None}")
 
     # assign: every drawn line on the band it was drawn in
     for key, tr in truth.items():
@@ -420,7 +476,7 @@ def grade(sol, svg_path, truth, workdir, art=None):
         for key, tr in truth.items():
             card['blank'][1] += 1
             bad = 0.0
-            for bx in tr['boxes']:
+            for bx in ([tr['poster_box']] if 'poster_box' in tr else tr['boxes']):
                 pad = max(2, int(0.2 * tr['cap']))
                 x0, y0 = max(0, bx[0] - pad), max(0, bx[1] - pad)
                 x1, y1 = min(W, bx[2] + pad), min(H, bx[3] + pad)
@@ -478,7 +534,7 @@ def brief_from_tags(rec):
 
 
 def one(job):
-    seed, site, briefs = job
+    seed, site, briefs, tiltrun = job
     import logging
     logging.getLogger('fontTools').setLevel(logging.ERROR)
     os.environ['POSTER_SITE'] = site
@@ -487,11 +543,15 @@ def one(job):
     from copytext import load_copy
     copy = load_copy(event)
     d, t, it = pick_faces(rng)
+    Page.tilt = tiltrun and event == 'gig'
     P = (draw_gig if event == 'gig' else draw_fete)(rng, copy, d, t, it)
     style = f'synthetic_{seed}'
     degrade(P.im, rng).save(os.path.join(site, 'assets', 'poster-examples',
                                          f'{style}-{event}-v2.webp'))
     cmd = [sys.executable, os.path.join(HERE, 'convert.py'), style, event, '--fresh']
+    if getattr(P, 'tilted', None):
+        keys, box = P.tilted
+        cmd += ['--tilted', f"{','.join(keys)}@{','.join(str(v) for v in box)}"]
     if briefs:
         cmd += ['--character', f"{'headliner' if event == 'gig' else 'title'}={brief_from_tags(d)}",
                 '--character', f'date={brief_from_tags(t)}']
@@ -514,14 +574,14 @@ def one(job):
 
 
 def totals(results):
-    tot = {k: [0, 0] for k in ('assign', 'face', 'size', 'case', 'track', 'split', 'blank', 'art')}
+    tot = {k: [0, 0] for k in ('assign', 'face', 'size', 'case', 'track', 'split', 'blank', 'art', 'tilt')}
     tot['audit'] = {}
     built = 0
     for _, _, card, _ in results:
         if not card:
             continue
         built += 1
-        for k in ('assign', 'face', 'size', 'case', 'track', 'split', 'blank', 'art'):
+        for k in ('assign', 'face', 'size', 'case', 'track', 'split', 'blank', 'art', 'tilt'):
             if k not in card:
                 continue
             tot[k][0] += card[k][0]
@@ -534,8 +594,8 @@ def totals(results):
 
 def show(tot):
     parts = [f"built {tot['built'][0]}/{tot['built'][1]}"]
-    parts += [f'{k} {tot[k][0]}/{tot[k][1]}' for k in ('assign', 'face', 'size', 'case', 'track', 'split', 'blank', 'art')
-              if k in tot]
+    parts += [f'{k} {tot[k][0]}/{tot[k][1]}' for k in ('assign', 'face', 'size', 'case', 'track', 'split', 'blank', 'art', 'tilt')
+              if k in tot and (k != 'tilt' or tot[k][1])]
     au = ', '.join(f'{k} {v}' for k, v in tot['audit'].items() if v) or 'none'
     return '  '.join(parts) + f'   audit leads: {au}'
 
@@ -550,6 +610,8 @@ def main():
     ap.add_argument('--seed', type=int, default=1)
     ap.add_argument('--briefs', action='store_true',
                     help="give convert.py character briefs from the drawn faces' tags")
+    ap.add_argument('--tilt', action='store_true',
+                    help='gig posters set their date and venue panel on a slant')
     ap.add_argument('--keep', action='store_true', help='keep the throwaway site')
     ap.add_argument('-j', type=int, default=4)
     a = ap.parse_args()
@@ -560,8 +622,10 @@ def main():
     os.symlink(os.path.join(real, '_data'), os.path.join(site, '_data'))
     os.symlink(os.path.join(real, '_includes'), os.path.join(site, '_includes'))
     seeds = (a.seeds or SUITE) if (a.suite or a.seeds) else [a.seed * 1000 + i for i in range(a.n)]
+    if a.tilt and a.suite and not a.seeds:
+        seeds = [s for s in SUITE if s % 2 == 0]
     with Pool(a.j) as pool:
-        results = sorted(pool.map(one, [(s, site, a.briefs) for s in seeds]))
+        results = sorted(pool.map(one, [(s, site, a.briefs, a.tilt) for s in seeds]))
     for seed, head, card, notes in results:
         print(head + ('' if card else '  FAILED'))
         for n in notes:
@@ -569,7 +633,7 @@ def main():
     tot = totals(results)
     print('\n' + show(tot))
     if a.suite:
-        key = 'briefs' if a.briefs else 'plain'
+        key = ('briefs' if a.briefs else 'plain') + ('+tilt' if a.tilt else '')
         base = json.load(open(BASELINE)) if os.path.exists(BASELINE) else {}
         if a.save_baseline:
             base[key] = tot

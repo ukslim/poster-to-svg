@@ -47,7 +47,18 @@ def panel(image_path, lines, assigned, width=380, title='', missing=()):
             used.add(b)
             ln = lines[b]
             box = [ln['left'] * s - 1, ln['y0'] * s - 1, ln['right'] * s + 1, ln['y1'] * s + 1]
-            d.rectangle(box, outline=col, width=2)
+            if ln.get('frame'):
+                # a tilted line: its levelled box, rotated back onto the poster
+                from tilt import to_poster
+                pts = [to_poster(x, y, ln['frame']) for x, y in
+                       ((ln['left'], ln['y0']), (ln['right'], ln['y0']),
+                        (ln['right'], ln['y1']), (ln['left'], ln['y1']))]
+                pts = [(x * s, y * s) for x, y in pts]
+                d.polygon(pts, outline=col, width=2)
+                box = [min(x for x, _ in pts), min(y for _, y in pts),
+                       max(x for x, _ in pts), max(y for _, y in pts)]
+            else:
+                d.rectangle(box, outline=col, width=2)
             # every band is labelled, continuation bands with their index, so a
             # wrapped line that lost or gained a band is visible at a glance
             label = f"#{b} " + (a['key'] if j == 0 else f"{a['key']} +{j}")

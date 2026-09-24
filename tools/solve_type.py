@@ -26,6 +26,7 @@ from svgkit import Face, render_glyph, top_ratio  # noqa: E402
 from shapescore import chamfer  # noqa: E402
 from typefeatures import features, distance, weight as ridge_weight  # noqa: E402
 from linemask import line_mask  # noqa: E402
+from tilt import pixels  # noqa: E402
 import catalogue  # noqa: E402
 from character import parse as parse_brief, mismatch  # noqa: E402
 
@@ -145,7 +146,7 @@ def line_profile(a, lines, arr):
                 v = slant(m)
                 if v is not None:
                     slants.append(v)
-        m, _ = line_mask(arr, (b['left'], b['y0'], b['right'], b['y1']), b['rgb'], b.get('ground'))
+        m, _ = line_mask(pixels(arr, b), (b['left'], b['y0'], b['right'], b['y1']), b['rgb'], b.get('ground'))
         if m is not None:
             w = ridge_weight(m, b['cap'])
             if w:
@@ -325,7 +326,7 @@ def group_features(group, lines, arr, crops):
         for a in group:
             for bi in a['bands']:
                 b = lines[bi]
-                m, _ = line_mask(arr, (b['left'], b['y0'], b['right'], b['y1']),
+                m, _ = line_mask(pixels(arr, b), (b['left'], b['y0'], b['right'], b['y1']),
                                  b['rgb'], b.get('ground'))
                 if m is not None:
                     w = ridge_weight(m, b['cap'])
@@ -518,6 +519,69 @@ def confidence(cands, n_glyphs=None):  # noqa
 
 
 # ------------------------------------------------------------------- main
+def parse_tilt(spec):
+    from tilt import parse
+    return parse(spec)
+
+
+def measure_tilted(image, paper, box, angle, copy, wrap_cap_ratio, measure_opts):
+    """Find and assign the copy set on a slant inside `box`.
+
+    The poster is rotated level about the box's centre and measured as if it
+    were its own poster, with everything outside the (rotated) box excluded;
+    the lines come back in that levelled frame, tagged with it.
+    """
+    import tempfile
+    from tilt import estimate, level, to_poster
+    a = np.array(Image.open(image).convert('RGB')).astype(int)
+    pap = tuple(int(paper[i:i + 2], 16) for i in (1, 3, 5))
+    if angle is None:
+        angle = estimate(a, box, pap)
+    frame = dict(angle=float(angle), cx=(box[0] + box[2]) / 2, cy=(box[1] + box[3]) / 2)
+    lev = level(a, frame, fill=pap)
+    # the box's corners in the levelled frame: to_poster's inverse is the same
+    # rotation the other way
+    inv = dict(frame, angle=-frame['angle'])
+    xs, ys = zip(*(to_poster(x, y, inv) for x, y in
+                   ((box[0], box[1]), (box[2], box[1]), (box[0], box[3]), (box[2], box[3]))))
+    bx0, by0, bx1, by1 = int(min(xs)), int(min(ys)), int(max(xs)), int(max(ys))
+    H, W = lev.shape[:2]
+    outside = [(0, 0, W, by0 - 1), (0, by1 + 1, W, H), (0, 0, bx0 - 1, H), (bx1 + 1, 0, W, H)]
+    opts = dict(measure_opts)
+    opts['exclude'] = outside
+    with tempfile.NamedTemporaryFile(suffix='.png') as t:
+        Image.fromarray(lev.clip(0, 255).astype('uint8')).save(t.name)
+        sm = find_lines(t.name, **opts)
+    for ln in sm['lines']:
+        ln['frame'] = frame
+    return sm['lines'], cover(sm['lines'], copy), frame
+
+
+def cover(lines, copy):
+    """Assign `copy` to ALL of `lines`, in order, each copy line taking one or
+    more consecutive bands: the split whose width per character is most
+    consistent. For a box someone said holds exactly these lines -- there is
+    nothing else in it to skip, and a general aligner with two lines to place
+    has too little to fit its constants on."""
+    import itertools
+    n, m = len(copy), len(lines)
+    if not n or m < n:
+        return assign_copy(lines, copy)[0] if lines else []
+    best, best_cost = None, float('inf')
+    for cuts in itertools.combinations(range(1, m), n - 1):
+        spans = list(zip((0,) + cuts, cuts + (m,)))
+        ks = []
+        for (i, j), c in zip(spans, copy):
+            w = sum(eff_width(lines[b]) for b in range(i, j))
+            cap = float(np.mean([lines[b]['cap'] for b in range(i, j)]))
+            ks.append(w / max(1, len(c['text'].replace(' ', ''))) / max(1, cap))
+        cost = float(np.std(ks) / max(1e-6, np.mean(ks)))
+        if cost < best_cost:
+            best, best_cost = spans, cost
+    return [dict(key=c['key'], text=c['text'], bands=list(range(i, j)))
+            for (i, j), c in zip(best, copy)]
+
+
 def briefs_for(kind, grp, character):
     """The character brief for a face group: given by group name, or by any
     copy line in it (the headliner's brief is the display group's)."""
@@ -529,11 +593,47 @@ def briefs_for(kind, grp, character):
 
 
 def solve(image, event, keep=SHAPE_POOL, wrap_cap_ratio=1.3, assign=None,
-          character=None, case=None, **measure_opts):
-    m = find_lines(image, **measure_opts)
+          character=None, case=None, tilted=None, **measure_opts):
     copy = load_copy(event)
-    assigned, note, cost = assign_copy(m['lines'], copy,
+    specs = [parse_tilt(t) for t in (tilted or [])]
+    tilted_keys = {k for keys, _, _ in specs for k in keys}
+    m = find_lines(image, **measure_opts)
+    frames, tilted_found = [], []
+    for keys, box, angle in specs:
+        tilted_found.append((keys, box) + measure_tilted(
+            image, m['paper'], box, angle, [c for c in copy if c['key'] in keys],
+            wrap_cap_ratio, measure_opts))
+    # The main measurement sees the slanted type as fragments of level bands.
+    # Drop those -- a band whose centre lies inside a found tilted line's
+    # outline -- but nothing else in the box: a bounding box round a slanted
+    # panel also covers level lines just above and below it.
+    if tilted_found:
+        from tilt import to_poster
+
+        def inside(x, y):
+            for _, _, sub_lines, _, frame in tilted_found:
+                lx, ly = to_poster(x, y, dict(frame, angle=-frame['angle']))
+                for ln in sub_lines:
+                    pad = 0.3 * ln['cap']
+                    if (ln['left'] - pad <= lx <= ln['right'] + pad
+                            and ln['y0'] - pad <= ly <= ln['y1'] + pad):
+                        return True
+            return False
+        m['lines'] = [ln for ln in m['lines']
+                      if not inside((ln['left'] + ln['right']) / 2, (ln['y0'] + ln['y1']) / 2)]
+    assigned, note, cost = assign_copy(m['lines'], [c for c in copy if c['key'] not in tilted_keys],
                                        wrap_cap_ratio=wrap_cap_ratio)
+    for keys, box, sub_lines, sub_assigned, frame in tilted_found:
+        off = len(m['lines'])
+        m['lines'] += sub_lines
+        for x in sub_assigned:
+            x['bands'] = [b + off for b in x['bands']]
+        assigned += sub_assigned
+        frames.append(dict(frame, box=list(box), keys=keys))
+        note += f"; {len(sub_assigned)}/{len(keys)} tilted line(s) at {frame['angle']:.1f} deg"
+    # the copy's own order, for everything downstream that reads assigned
+    order = {c['key']: i for i, c in enumerate(copy)}
+    assigned.sort(key=lambda x: order[x['key']])
     assigned, assign_points = apply_assign(m['lines'], copy, assigned, assign)
     if assign_points:
         note = f"{note}; {len(assign_points)} line(s) assigned by hand"
@@ -666,7 +766,7 @@ def solve(image, event, keep=SHAPE_POOL, wrap_cap_ratio=1.3, assign=None,
                                 mean_cost=round(cost, 3)))
 
     return dict(image=image, event=event, size=m['size'], paper=m['paper'],
-                assign_points=assign_points,
+                assign_points=assign_points, frames=frames,
                 median_texture=round(med_tex, 2),
                 alignment=note, alignment_cost=round(cost, 3),
                 lines=m['lines'],   # keeps per-glyph boxes: the builder blanks

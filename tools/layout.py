@@ -59,8 +59,18 @@ def anchors(lines, band_ids, page_w):
     the given bands. A block with no shared edge is ranged left."""
     ids = list(band_ids)
     kinds, block_of = {}, {}
-    for n, (g, kind) in enumerate(blocks([lines[i] for i in ids], page_w)):
-        for k in g:
-            kinds[ids[k]] = kind or 'left'
-            block_of[ids[k]] = n
+    # blocks are found within one frame: a levelled tilted line's coordinates
+    # are not comparable with the poster's
+    frames = {}
+    for i in ids:
+        f = lines[i].get('frame')
+        frames.setdefault(tuple(sorted(f.items())) if f else None, []).append(i)
+    n0 = 0
+    for fids in frames.values():
+        found = blocks([lines[i] for i in fids], page_w)
+        for n, (g, kind) in enumerate(found):
+            for k in g:
+                kinds[fids[k]] = kind or 'left'
+                block_of[fids[k]] = n0 + n
+        n0 += len(found)
     return kinds, block_of

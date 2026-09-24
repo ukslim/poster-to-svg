@@ -188,7 +188,10 @@ def audit(svg_path, sol, workdir):
     art = render(strip_text(svg), workdir, 'art', W, H)
     boxes = text_boxes(svg, workdir)
     L = sol['lines']
-    key_of = {b: a['key'] for a in sol['assigned'] for b in a['bands']}
+    # lines on a slant are checked by the round trip, not here: their
+    # coordinates are in a levelled frame
+    key_of = {b: a['key'] for a in sol['assigned'] for b in a['bands']
+              if not L[b].get('frame')}
     used = sorted(key_of)
     found = []
 

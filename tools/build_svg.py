@@ -255,8 +255,12 @@ def place(sol, chosen, shapes=None):
                 # the shapes, and a line that collides with one is simply
                 # wrong, however faithful its letterforms.
                 lo, hi = face.ink(part, size, track=ls_em * size)
-                room = clear_width(b['left'], b['y0'], b['y1'], obs,
-                                   sol['size'][0], orig_right=b['right'])
+                # artwork and the page edge are in the poster's frame; a
+                # tilted line is fitted in its own, where only the measured
+                # width means anything
+                room = (clear_width(b['left'], b['y0'], b['y1'], obs,
+                                    sol['size'][0], orig_right=b['right'])
+                        if not b.get('frame') else max(hi - lo, 1.25 * b['width']))
                 if hi - lo > room:
                     size *= room / (hi - lo)
                 sized.append((b, part, size, ls_em))
@@ -283,7 +287,7 @@ def place(sol, chosen, shapes=None):
                                 y=b['baseline'], fill=b['rgb'], cap=b['cap'],
                                 left=b['left'], right=b['right'],
                                 anchor=anchor_of.get(bi, 'left'),
-                                block=block_of.get(bi)))
+                                block=block_of.get(bi), frame=b.get('frame')))
     unify_siblings(out, {g: f for g, (c, f) in used.items()})
     return out, used
 
@@ -746,14 +750,15 @@ def artwork_svg(spec, sol, workdir, quality=76):
         # survives the blanking above and shows up in the finished SVG as a
         # stray letter beside the reset line. Anything letter-shaped sitting
         # inside the text block is type we missed, so blank it too.
-        if sol['lines']:
+        flat = [l for l in sol['lines'] if not l.get('frame')]
+        if flat:
             from scipy import ndimage
-            caps = [l['cap'] for l in sol['lines']]
+            caps = [l['cap'] for l in flat]
             med = float(np.median(caps))
-            tx0 = min(l['left'] for l in sol['lines']) - 2 * med
-            tx1 = max(l['right'] for l in sol['lines']) + 2 * med
-            ty0 = min(l['y0'] for l in sol['lines']) - med
-            ty1 = max(l['y1'] for l in sol['lines']) + med
+            tx0 = min(l['left'] for l in flat) - 2 * med
+            tx1 = max(l['right'] for l in flat) + 2 * med
+            ty0 = min(l['y0'] for l in flat) - med
+            ty1 = max(l['y1'] for l in flat) + med
             arr = np.array(im).astype(int)
             left = np.abs(arr - np.array(paper)).max(2) > 26
             # Detach rules before labelling -- purely to see what is behind
@@ -764,7 +769,7 @@ def artwork_svg(spec, sol, workdir, quality=76):
             from masks import strip_rules
             detached, _ = strip_rules(left, 120, 5)
             lab, n = ndimage.label(detached, np.ones((3, 3), bool))
-            excl = opts['exclude']
+            excl = opts['exclude'] + [tuple(f['box']) for f in sol.get('frames') or []]
             swept = 0
             for i, sl in enumerate(ndimage.find_objects(lab), start=1):
                 ys, xs = sl
@@ -801,7 +806,8 @@ def artwork_svg(spec, sol, workdir, quality=76):
                 # sweeping it erased nasa_worm's whole small-print block.
                 if any(not (xs.stop <= L['left'] or xs.start > L['right']
                             or ys.stop <= L['y0'] or ys.start > L['y1'])
-                       for bi, L in enumerate(sol['lines']) if bi not in used):
+                       for bi, L in enumerate(sol['lines'])
+                       if bi not in used and not L.get('frame')):
                     continue
                 # Nor a list marker: a bullet is letter-sized and sits in the
                 # text block, but the solver set it aside as artwork on purpose.
@@ -882,7 +888,9 @@ def build(sol, chosen, artwork, workdir, title=''):
         + ({'centre': 'text-anchor="middle" ', 'right': 'text-anchor="end" '}
            .get(p['anchor'], '')) +
         f'y="{p["y"]}" font-size="{p["size"]}" fill="{p["fill"]}"'
-        + (f' letter-spacing="{p["ls_em"]:g}em"' if p.get('ls_em') else '') + '>'
+        + (f' letter-spacing="{p["ls_em"]:g}em"' if p.get('ls_em') else '')
+        + (f' transform="rotate({p["frame"]["angle"]:.2f} {p["frame"]["cx"]:.1f} '
+           f'{p["frame"]["cy"]:.1f})"' if p.get('frame') else '') + '>'
         f'{esc(p["text"])}</text>' for p in placed)
 
     return f'''<?xml version="1.0" encoding="UTF-8"?>
