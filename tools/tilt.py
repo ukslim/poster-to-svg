@@ -54,7 +54,7 @@ def pixels(arr, line):
     return level(arr, f) if f else arr
 
 
-def estimate(arr, box, paper, search=35.0):
+def estimate(arr, box, paper, search=35.0, around=None):
     """Angle (degrees, PIL rotate sense) that levels the type in `box`.
 
     Type makes a projection profile of sharp peaks (its lines) and gaps
@@ -65,8 +65,11 @@ def estimate(arr, box, paper, search=35.0):
     sub = np.asarray(arr)[y0:y1 + 1, x0:x1 + 1].astype(float)
     ink = (np.abs(sub - np.array(paper, float)).max(2) > 60).astype('uint8') * 255
     im = Image.fromarray(ink)
-    best, best_a = -1.0, 0.0
-    for step, span in ((1.0, search), (0.1, 1.0)):
+    # With a hint (someone's reading of the slope) search only near it: a
+    # diagonal bar or a burst of rays in the box can out-vote the type on a
+    # wide search, but not within a few degrees of the right answer.
+    best, best_a = -1.0, (around if around is not None else 0.0)
+    for step, span in (((0.5, 3.0) if around is not None else (1.0, search)), (0.1, 1.0)):
         centre = best_a
         for a in np.arange(centre - span, centre + span + step / 2, step):
             prof = np.asarray(im.rotate(a, resample=Image.BILINEAR, expand=True),
@@ -78,11 +81,15 @@ def estimate(arr, box, paper, search=35.0):
 
 
 def parse(spec):
-    """'date,venue@X0,Y0,X1,Y1[@ANGLE]' -> (keys, box, angle or None)."""
+    """'date,venue@X0,Y0,X1,Y1[@RISE]' -> (keys, box, levelling angle or None).
+    RISE is the slope by eye, in degrees, positive rising to the right; the
+    exact angle is measured within a few degrees of it."""
     parts = spec.split('@')
     if len(parts) < 2:
         raise SystemExit(f'--tilted {spec!r}: expected KEYS@X0,Y0,X1,Y1[@ANGLE]')
     keys = [k.strip() for k in parts[0].split(',') if k.strip()]
     box = tuple(int(v) for v in parts[1].split(','))
-    angle = float(parts[2]) if len(parts) > 2 else None
+    # given as the slope a person reads: degrees the type RISES to the right;
+    # levelling it is PIL's rotate by minus that
+    angle = -float(parts[2]) if len(parts) > 2 else None
     return keys, box, angle

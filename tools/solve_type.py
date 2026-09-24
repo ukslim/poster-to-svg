@@ -535,8 +535,7 @@ def measure_tilted(image, paper, box, angle, copy, wrap_cap_ratio, measure_opts)
     from tilt import estimate, level, to_poster
     a = np.array(Image.open(image).convert('RGB')).astype(int)
     pap = tuple(int(paper[i:i + 2], 16) for i in (1, 3, 5))
-    if angle is None:
-        angle = estimate(a, box, pap)
+    angle = estimate(a, box, pap, around=angle)
     frame = dict(angle=float(angle), cx=(box[0] + box[2]) / 2, cy=(box[1] + box[3]) / 2)
     lev = level(a, frame, fill=pap)
     # the box's corners in the levelled frame: to_poster's inverse is the same
@@ -557,29 +556,46 @@ def measure_tilted(image, paper, box, angle, copy, wrap_cap_ratio, measure_opts)
     return sm['lines'], cover(sm['lines'], copy), frame
 
 
-def cover(lines, copy):
-    """Assign `copy` to ALL of `lines`, in order, each copy line taking one or
-    more consecutive bands: the split whose width per character is most
-    consistent. For a box someone said holds exactly these lines -- there is
-    nothing else in it to skip, and a general aligner with two lines to place
-    has too little to fit its constants on."""
-    import itertools
+def cover(lines, copy, skip=0.6, miss=1.5):
+    """Assign `copy` to `lines`, in order, each copy line taking consecutive
+    bands of one size (a wrapped line keeps its size). For a box someone said
+    holds exactly these lines: a band is skipped only at a cost (a fragment of
+    a bar or a speck in the box), a copy line goes unplaced only at a larger
+    one, and the lines' widths per character should agree. A general aligner
+    with two lines to place has too little to fit its constants on."""
     n, m = len(copy), len(lines)
-    if not n or m < n:
-        return assign_copy(lines, copy)[0] if lines else []
-    best, best_cost = None, float('inf')
-    for cuts in itertools.combinations(range(1, m), n - 1):
-        spans = list(zip((0,) + cuts, cuts + (m,)))
-        ks = []
-        for (i, j), c in zip(spans, copy):
-            w = sum(eff_width(lines[b]) for b in range(i, j))
-            cap = float(np.mean([lines[b]['cap'] for b in range(i, j)]))
-            ks.append(w / max(1, len(c['text'].replace(' ', ''))) / max(1, cap))
-        cost = float(np.std(ks) / max(1e-6, np.mean(ks)))
-        if cost < best_cost:
-            best, best_cost = spans, cost
-    return [dict(key=c['key'], text=c['text'], bands=list(range(i, j)))
-            for (i, j), c in zip(best, copy)]
+    if not n or not m:
+        return []
+    chars = [max(1, len(c['text'].replace(' ', ''))) for c in copy]
+
+    def k(i, j, c):
+        w = sum(eff_width(lines[b]) for b in range(i, j))
+        cap = float(np.mean([lines[b]['cap'] for b in range(i, j)]))
+        return w / chars[c] / max(1, cap)
+    # candidate spans: consecutive bands of similar cap
+    spans = [(i, j) for i in range(m) for j in range(i + 1, min(m, i + 4) + 1)
+             if max(lines[b]['cap'] for b in range(i, j))
+             <= 1.3 * min(lines[b]['cap'] for b in range(i, j))]
+    best = (float('inf'), None)
+    # small enough to enumerate: choose for each copy line a span or nothing,
+    # spans in order and disjoint
+    def walk(c, pos, chosen):
+        nonlocal best
+        if c == n:
+            used = sum(j - i for i, j in (x for x in chosen if x))
+            ks = [k(i, j, ci) for ci, x in enumerate(chosen) if x for i, j in [x]]
+            spread = float(np.std(ks) / max(1e-6, np.mean(ks))) if len(ks) > 1 else 0.0
+            cost = spread + skip * (m - used) + miss * sum(1 for x in chosen if not x)
+            if cost < best[0]:
+                best = (cost, list(chosen))
+            return
+        walk(c + 1, pos, chosen + [None])
+        for i, j in spans:
+            if i >= pos:
+                walk(c + 1, j, chosen + [(i, j)])
+    walk(0, 0, [])
+    return [dict(key=c['key'], text=c['text'], bands=list(range(x[0], x[1])))
+            for c, x in zip(copy, best[1]) if x]
 
 
 def briefs_for(kind, grp, character):

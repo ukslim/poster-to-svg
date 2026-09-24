@@ -100,7 +100,7 @@ measurement is wrong: fix it or record the poster as flawed.
 | `--character KEY=BRIEF` | the face's character, as a gate on the ranking |
 | `--face GROUP\|KEY=#N\|"Family:weight"` | choose a face; a copy key gives that line its own face |
 | `--case KEY=upper\|mixed` | case where the test is fooled |
-| `--tilted KEYS@X0,Y0,X1,Y1[@ANGLE]` | copy set on a slant (a banner, a rotated panel): name the lines and a box round them; the angle is measured. Warped or perspective type is still a skip |
+| `--tilted KEYS@X0,Y0,X1,Y1@RISE` | copy set on a slant (a banner, a rotated panel): name the lines, a box round them, and the slope by eye in degrees rising to the right (`-8` falls); the exact angle is measured near it. Without RISE a bar or rays in the box can win. Warped or perspective type is still a skip |
 | `--knockout X0,Y0,X1,Y1` | a paper panel knocked out of a shape (reported as `possible_knockout`; right about 1 in 3, so look) |
 | `--artwork auto\|mask\|crop:..\|shapes:..\|none` | artwork treatment |
 | `--force`, `--fresh`, `--resolve-only` | build despite weak alignment; ignore stored knobs; solve only |

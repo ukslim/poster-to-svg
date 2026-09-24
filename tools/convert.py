@@ -119,8 +119,8 @@ def main():
                     help='say whether a copy line is set in capitals, where the '
                          'lettering defeats the automatic test; repeatable')
     ap.add_argument('--tilted', action='append', default=[], metavar='KEYS@X0,Y0,X1,Y1[@ANGLE]',
-                    help='copy lines set on a slant, and the box they sit in, e.g. '
-                         'date,venue@120,900,980,1200; the angle is measured unless given')
+                    help='copy lines set on a slant, the box they sit in, and the slope by eye '
+                         '(degrees rising to the right): date,venue@120,900,980,1200@8')
     ap.add_argument('--keep', type=int, default=80)
     ap.add_argument('--fresh', action='store_true',
                     help='ignore the knobs stored with an earlier solution')
