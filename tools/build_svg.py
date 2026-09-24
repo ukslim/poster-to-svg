@@ -795,6 +795,14 @@ def artwork_svg(spec, sol, workdir, quality=76):
                 cx, cy = (xs.start + xs.stop) / 2, (ys.start + ys.stop) / 2
                 if any(e0 <= cx <= e2 and e1 <= cy <= e3 for e0, e1, e2, e3 in excl):
                     continue
+                # Nor type the solver found but nothing is reset over (copy
+                # left as the original's pixels with --assign KEY=none, or an
+                # illustration's own label): it is artwork by decision, and
+                # sweeping it erased nasa_worm's whole small-print block.
+                if any(not (xs.stop <= L['left'] or xs.start > L['right']
+                            or ys.stop <= L['y0'] or ys.start > L['y1'])
+                       for bi, L in enumerate(sol['lines']) if bi not in used):
+                    continue
                 # Nor a list marker: a bullet is letter-sized and sits in the
                 # text block, but the solver set it aside as artwork on purpose.
                 if any(l.get('marker') and not (

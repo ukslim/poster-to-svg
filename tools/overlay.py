@@ -84,7 +84,13 @@ def current(name):
     from regress import knobs_of
     from measure import find_lines, load_copy, assign_copy
     soln = os.path.join(poster_site.solutions(), name + '.json')
-    k = knobs_of(json.load(open(soln)) if os.path.exists(soln) else {})
+    if os.path.exists(soln):
+        k = knobs_of(json.load(open(soln)))
+    else:
+        # no solution yet: number the bands exactly as convert.py will find
+        # them, or --assign #N points at the wrong band
+        from convert import DEFAULTS
+        k = knobs_of({'knobs': DEFAULTS})
     src = os.path.join(poster_site.examples(), name + '.webp')
     m = find_lines(src, min_glyphs=k['min_glyphs'], solid_radius=k['solid_radius'],
                    rule_length=k['rule_length'], rule_thick=k['rule_thick'],
