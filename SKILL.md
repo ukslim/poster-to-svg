@@ -79,6 +79,11 @@ flower petal and the support act on the second line of the headline. Before
 building, look at `overlay.py {style}-{event}`: every band is numbered, boxed
 and labelled with the copy line it was given.
 
+**Case** is decided per band: capitals where the line's glyphs sit at the
+capital line. Where generated lettering defeats that -- letters fused with
+hatching, a footer whose x-height letters are drawn oddly -- say it:
+`--case support=mixed`, `--case footer0=upper`.
+
 **Where the aligner is wrong, say where the lines are** rather than tuning
 knobs until it agrees. Reading the overlay is one look; `--assign` records it:
 

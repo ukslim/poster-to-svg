@@ -109,7 +109,18 @@ def line_metrics(runs):
     # outnumber the x-height letters and the mode lands on the cap line.
     # Specks and punctuation are excluded -- they are small and sit low.
     real = [r for r, e in zip(runs, ext) if e >= 0.4 * max(ext)]
-    lower = sum(1 for r in real if r[2] - cap_top > 0.12 * (base + 1 - cap_top))
+    # Judged against the capital LINE -- a low percentile of the tops -- not
+    # the single highest: the accent over FETE stands above the capitals, and
+    # taking it for the cap made every capital of VILLAGE FETE look lower case
+    # (0.92 "lower" on screenprint_pop's all-caps title).
+    #
+    # Only a LONE spike is discounted: a percentile would put the "capital
+    # line" at small-cap height in a small-caps face with three capitals in
+    # the line, and call it all capitals.
+    high = sorted(r[2] for r in real)
+    h = base + 1 - cap_top
+    line = high[1] if len(high) >= 3 and high[1] - high[0] > 0.10 * h else cap_top
+    lower = sum(1 for r in real if r[2] - line > 0.12 * (base + 1 - line))
     return dict(lower_frac=round(lower / len(real), 3) if real else 0.0,
                 base=base, capTop=cap_top, xTop=tops.most_common(1)[0][0],
                 inkTop=min(tops), inkBot=max(bots),

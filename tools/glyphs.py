@@ -185,3 +185,80 @@ def segment(arr, band, text):
         if crop.sum() >= 12:
             out.append((ch, crop))
     return out
+
+
+# Letters whose tops sit at x-height in mixed case, and ones that reach the
+# capital line (capitals, ascenders, figures) in either case.
+XHEIGHT = set('acemnorsuvwxz')
+TALL = set('ABCDEFGHIJKLMNOPQRSTUVWXYZbdfhklt0123456789')
+
+
+def char_spans(runs, chars):
+    """Each character's x-span, from the run alignment -- including the
+    characters inside a run that holds several (touching letters, or a word
+    fused to artwork), whose span is its share of the run's width by the
+    letters' expected widths. -> [(char, x0, x1)] or None."""
+    runs = sorted(tuple(r) for r in runs)
+    steps = align(runs, chars)
+    if not steps:
+        return None
+    exp = expected_widths(chars)
+    out = []
+    for ri, ci in steps:
+        x0 = min(runs[k][0] for k in ri)
+        x1 = max(runs[k][1] for k in ri)
+        tot = sum(exp[c] for c in ci)
+        pen = x0
+        for c in ci:
+            w = (x1 - x0 + 1) * exp[c] / tot
+            out.append((chars[c], pen, pen + w))
+            pen += w
+    return out
+
+
+def case_of(arr, band, text):
+    """'upper', 'mixed', or None (no evidence) for one band's text.
+
+    The test that survives generated lettering: where each x-height letter
+    (a c e m n o r s u v w x z) is, the ink's top in the middle of its own
+    column span, against the tops of the tall letters. In capitals they are
+    level; in mixed case the x-height letters stand at 0.45-0.8 of the tall
+    ones. Counting glyph runs at x-height, the old test, fails where letters
+    touch -- a word fused into one run takes its tallest letter's top, and a
+    mixed-case line reads as capitals -- and where an accent over FETE is
+    taken for the capital line and everything else looks short.
+    """
+    runs = band.get('runs') or []
+    chars = [c for c in text if not c.isspace()]
+    spans = char_spans(runs, chars) if runs else None
+    if not spans:
+        return None
+    x0 = max(0, int(min(r[0] for r in runs)) - 2)
+    x1 = min(arr.shape[1] - 1, int(max(r[1] for r in runs)) + 2)
+    y0 = max(0, int(min(r[2] for r in runs)) - 2)
+    y1 = min(arr.shape[0] - 1, int(max(r[3] for r in runs)) + 2)
+    mask, _ = line_mask(arr, (x0, y0, x1, y1), band['rgb'], band.get('ground'))
+    if mask is None:
+        return None
+    base = band['baseline'] - y0
+
+    def top(a, b):
+        # the middle 50% of the span: clear of a neighbour's overhang
+        c0, c1 = int(a + 0.25 * (b - a)) - x0, int(b - 0.25 * (b - a)) - x0 + 1
+        cols = mask[:base, max(0, c0):max(c0 + 1, c1)]
+        rows = np.where(cols.any(1))[0]
+        return base - rows.min() if len(rows) else None
+
+    xh = [top(a, b) for c, a, b in spans if c.lower() in XHEIGHT and c.isalpha()]
+    tall = [top(a, b) for c, a, b in spans if c in TALL]
+    xh = [v for v in xh if v]
+    tall = [v for v in tall if v]
+    if len(xh) < 2:
+        return None
+    ref = float(np.median(tall)) if len(tall) >= 2 else float(band['cap'])
+    # A low percentile, not the median: a span that is a little misplaced
+    # catches a neighbour's ascender (the d of "Brindlewick") and only ever
+    # reads TALLER, which turned mixed-case small print into capitals. In real
+    # capitals every x-height position is tall, so the low end is too.
+    r = float(np.percentile(xh, 25)) / ref
+    return 'upper' if r > 0.88 else 'mixed' if r < 0.82 else None

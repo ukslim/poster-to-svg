@@ -515,7 +515,7 @@ def briefs_for(kind, grp, character):
 
 
 def solve(image, event, keep=SHAPE_POOL, wrap_cap_ratio=1.3, assign=None,
-          character=None, **measure_opts):
+          character=None, case=None, **measure_opts):
     m = find_lines(image, **measure_opts)
     copy = load_copy(event)
     assigned, note, cost = assign_copy(m['lines'], copy,
@@ -536,13 +536,47 @@ def solve(image, event, keep=SHAPE_POOL, wrap_cap_ratio=1.3, assign=None,
     # cruder test -- modal glyph top versus cap top -- fails on a short word
     # like "Brindlewick", where ascenders and capitals outnumber the x-height
     # letters and the mode lands on the cap line.)
+    #
+    # Decided per band: a title may set BRINDLEWICK in letter-spaced capitals
+    # on one line and "Village Fete" in mixed case on the next. The evidence
+    # is where each x-height letter's ink tops out (glyphs.case_of), which
+    # survives letters fused into one run; failing that, the share of runs at
+    # x-height; and someone who has looked can say, with --case.
+    a = np.array(Image.open(image).convert('RGB')).astype(int)
+    from glyphs import case_of
+    case = case or {}
     for x in assigned:
-        fr = [m['lines'][b].get('lower_frac', 1.0) for b in x['bands']]
-        if fr and float(np.median(fr)) < 0.12 and x['text'] != x['text'].upper():
+        if x['text'] == x['text'].upper():
+            continue
+        L = m['lines']
+        parts = split_text(x['text'], x['bands'], L) or [x['text']]
+        bands = x['bands'] if len(parts) == len(x['bands']) else x['bands'][:1]
+        parts = parts if len(parts) == len(x['bands']) else [x['text']]
+        decided = []
+        for bi, part in zip(bands, parts):
+            # The share of runs at x-height is decisive at its extremes --
+            # generated capitals measure 0-0.12, mixed case 0.45 and up. In
+            # between (cubist's date, 0.31), where each x-height letter tops
+            # out decides (glyphs.case_of); it can be fooled on a short line
+            # with an accent, so it never overrules a clear run count.
+            c = case.get(x['key'])
+            f = L[bi].get('lower_frac', 1.0)
+            # ...unless the band is really two lines merged (taller than one
+            # line with its descenders): its run count is then meaningless.
+            if L[bi]['y1'] - L[bi]['y0'] > 1.7 * L[bi]['cap']:
+                f = 0.3
+            if c is None:
+                c = ('upper' if f < 0.12 else 'mixed' if f >= 0.45
+                     else case_of(a, L[bi], part) or ('upper' if f < 0.3 else 'mixed'))
+            decided.append(c)
+        if all(c == 'upper' for c in decided):
             x['text'] = x['text'].upper()
             x['upper'] = True
-
-    a = np.array(Image.open(image).convert('RGB')).astype(int)
+        elif any(c == 'upper' for c in decided):
+            parts = [p.upper() if c == 'upper' else p for p, c in zip(parts, decided)]
+            x['text'] = ' '.join(parts)
+            x['parts'] = parts
+            x['upper'] = 'partly'
 
     groups, ambiguities = {}, []
 

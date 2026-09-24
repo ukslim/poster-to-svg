@@ -316,6 +316,7 @@ def grade(sol, svg_path, truth, workdir):
     # size, case, track: from the SVG's own <text> elements
     texts = svg_texts(open(svg_path).read())
     for key, tr in truth.items():
+        sized = False
         for base in tr['bases']:
             words = set(tr['text'].lower().split())
             near = [t for t in texts if abs(t['y'] - base) < 0.4 * tr['cap']
@@ -337,7 +338,9 @@ def grade(sol, svg_path, truth, workdir):
             else:
                 notes.append(f"track: {key} drawn {tr['track']:.2f}em, set {t['ls']:.2f}em")
             c = shipped.get(key)
-            if c and c['family'] == tr['family'] and abs(c['weight'] - tr['weight']) <= 100:
+            if (not sized and c and c['family'] == tr['family']
+                    and abs(c['weight'] - tr['weight']) <= 100):
+                sized = True
                 card['size'][1] += 1
                 err = t['size'] / tr['size'] - 1
                 # 3%, or a pixel and a half of cap on small type, where one
@@ -346,7 +349,7 @@ def grade(sol, svg_path, truth, workdir):
                     card['size'][0] += 1
                 else:
                     notes.append(f'size: {key} {err:+.0%}')
-            break
+            # every band of a wrapped line is graded for case and tracking
 
     # audit leads on the result
     from audit import audit
