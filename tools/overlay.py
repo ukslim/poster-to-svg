@@ -5,8 +5,9 @@
     python3 overlay.py risograph-gig --vs-solution         # stored | current, side by side
     python3 overlay.py a-gig b-fete c-gig -o sheet.png     # several in one sheet
 
-Each assigned band is boxed and labelled with its copy key; bands nobody was
-assigned are dashed grey. One small image replaces reading a table of band
+Each band is numbered (#N) and, if assigned, boxed and labelled with its copy
+key; bands nobody was assigned are shaded grey with '#N?'. The numbers are what
+convert.py --assign takes: `--assign presenter=#0`. One small image replaces reading a table of band
 coordinates against a look at the poster, which is where misassigned copy
 hides. Deliberately small (default 380px per panel) to keep image tokens down.
 """
@@ -49,7 +50,7 @@ def panel(image_path, lines, assigned, width=380, title='', missing=()):
             d.rectangle(box, outline=col, width=2)
             # every band is labelled, continuation bands with their index, so a
             # wrapped line that lost or gained a band is visible at a glance
-            label = a['key'] if j == 0 else f"{a['key']} +{j}"
+            label = f"#{b} " + (a['key'] if j == 0 else f"{a['key']} +{j}")
             tw = d.textlength(label, font=f)
             ty = max(0, box[1] - 13)
             d.rectangle([box[0], ty, box[0] + tw + 2, ty + 13], fill=(255, 255, 255, 210))
@@ -59,7 +60,7 @@ def panel(image_path, lines, assigned, width=380, title='', missing=()):
             continue
         box = [ln['left'] * s, ln['y0'] * s, ln['right'] * s, ln['y1'] * s]
         d.rectangle(box, fill=(0, 0, 0, 70), outline=(0, 0, 0, 200), width=1)
-        d.text((box[0] + 1, box[1]), '?', fill='black', font=f)
+        d.text((box[0] + 1, box[1]), f'#{b}?', fill='black', font=f)
     if title:
         d.rectangle([0, 0, width, 14], fill='white')
         d.text((2, 1), title, fill='black', font=f)
@@ -101,11 +102,30 @@ def stored(name):
         f"stored {s.get('alignment_cost', 0):.2f}"
 
 
+def baseline(name):
+    """The regress.py baseline snapshot, drawn as if it were a solution. It
+    keeps only the assigned boxes, so unassigned bands are not shown."""
+    from regress import BASELINE
+    snap = json.load(open(BASELINE))[name]
+    lines, assigned = [], []
+    for key, boxes in snap['assigned'].items():
+        idx = []
+        for y0, y1, l, r in boxes:
+            idx.append(len(lines))
+            lines.append(dict(y0=y0, y1=y1, left=l, right=r))
+        assigned.append(dict(key=key, bands=idx))
+    assigned.sort(key=lambda a: lines[a['bands'][0]]['y0'])
+    return (os.path.join(poster_site.examples(), name + '.webp'), lines, assigned,
+            f"baseline {snap['cost']:.2f}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('names', nargs='+', help='style-event, e.g. risograph-gig')
     ap.add_argument('--vs-solution', action='store_true',
                     help='stored assignment beside the current one')
+    ap.add_argument('--vs-baseline', action='store_true',
+                    help='the regress.py baseline beside the current one')
     ap.add_argument('--width', type=int, default=380)
     ap.add_argument('-o', '--out', default=None)
     a = ap.parse_args()
@@ -113,9 +133,10 @@ def main():
     for n in a.names:
         name = n if n.endswith('-v2') else n + '-v2'
         short = name[:-3]
-        if a.vs_solution:
-            src, L, A, t = stored(name)
-            panels.append(panel(src, L, A, a.width, f'{short}  {t}', missing_keys(name, A)))
+        for flag, fn in ((a.vs_solution, stored), (a.vs_baseline, baseline)):
+            if flag:
+                src, L, A, t = fn(name)
+                panels.append(panel(src, L, A, a.width, f'{short}  {t}', missing_keys(name, A)))
         src, L, A, t = current(name)
         panels.append(panel(src, L, A, a.width, f'{short}  {t}', missing_keys(name, A)))
     w = sum(p.width for p in panels) + 6 * (len(panels) - 1)

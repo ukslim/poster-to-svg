@@ -76,9 +76,25 @@ poster with a wrong one -- `manifest.py` will keep showing it as work to do.
 
 **`ok` is not proof.** The aligner has reported `ok` with a list item set on a
 flower petal and the support act on the second line of the headline. Before
-building, read the assignment -- every copy line's band, x-range, colour and
-run count -- against your one look at the poster. A band of 2-3 runs is almost
-always artwork: `--min-glyphs 3`. An illustration feeding bands: `--exclude`.
+building, look at `overlay.py {style}-{event}`: every band is numbered, boxed
+and labelled with the copy line it was given.
+
+**Where the aligner is wrong, say where the lines are** rather than tuning
+knobs until it agrees. Reading the overlay is one look; `--assign` records it:
+
+```bash
+python3 $S/convert.py contemporary_flat_illustration fete \
+  --assign attraction0=#6 --assign attraction1=#7 --assign footer0=none
+```
+
+`key=#N` puts a copy line on band N, `key=#N+#M` on a line wrapped over two,
+`key=none` leaves it out (not on the poster, or its band is missing or merged
+-- the original pixels then stay in the artwork). A band given to a key is
+taken from whatever the aligner gave it. Assignments are stored as points, so
+they survive re-measurement, and a hand assignment lifts the weak-alignment
+gate. Use knobs (`--min-glyphs 3`, `--exclude`) when the *bands* are wrong --
+a line missing, merged or made of artwork; use `--assign` when the bands are
+right and the copy is on the wrong ones.
 
 Budget: about ≤10 tool calls and ≤3 images per poster. If one is taking forty,
 something is wrong with the measurement — fix that, don't grind.

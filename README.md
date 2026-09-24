@@ -43,5 +43,6 @@ ln -s ../../../poster-to-svg path/to/site/.claude/skills/poster-to-svg
 ## Tests
 
 ```bash
-python3 tools/test_measure.py && python3 tools/test_svgkit.py
+python3 tools/test_measure.py && python3 tools/test_svgkit.py && python3 tools/test_bands.py
+python3 tools/regress.py        # re-measure every solved poster (run from the site)
 ```

@@ -32,10 +32,20 @@ def ground_of(arr, box, ink, pad=None):
     sub = arr[max(0, y0 - pad):min(H, y1 + pad + 1), max(0, x0 - pad):min(W, x1 + pad + 1)]
     px = sub.reshape(-1, 3).astype(float)
     d = np.linalg.norm(px - ink, axis=1)
-    far = px[d > max(40.0, np.percentile(d, 50))]
+    # >=, not >: on a perfectly flat ground every ground pixel sits exactly at
+    # the median distance, and a strict test throws the whole ground away.
+    far = px[d >= max(40.0, np.percentile(d, 50))]
     if len(far) < 20:
         return None
-    return np.median(far, 0)
+    # The most common colour, not the median. Round a line there is often
+    # more than one other colour -- white letters and orange rules round the
+    # navy gaps of a reversed list -- and a per-channel median of a mixture is
+    # a colour that is not on the poster at all.
+    q = (far // 24).astype(int)
+    keys = q[:, 0] * 10000 + q[:, 1] * 100 + q[:, 2]
+    vals, counts = np.unique(keys, return_counts=True)
+    top = vals[np.argmax(counts)]
+    return np.median(far[keys == top], 0)
 
 
 def line_mask(arr, box, ink, ground=None, min_contrast=30.0):

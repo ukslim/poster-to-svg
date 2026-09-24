@@ -12,19 +12,18 @@ bauhaus_modernist-fete-v2: 4
     date: cap 35 vs original 44 (0.80x) -- shrunk to clear artwork, or a size misread?
     date: cap 35 vs original 45 (0.78x) -- shrunk to clear artwork, or a size misread?
     venue: cap 25 vs original 30 (0.83x) -- shrunk to clear artwork, or a size misread?
-    type-like band left in the artwork at y1380..1416 x75..590 (35 glyphs, cap 36) -- unreset copy, or the artwork's own lettering?
+    type-like band left in the artwork at y1380..1416 x74..590 (21 glyphs, cap 37) -- unreset copy, or the artwork's own lettering?
 botanical_scientific-fete-v2: 1
     attractions_label: cap 16 vs original 13 (1.23x) -- shrunk to clear artwork, or a size misread?
 botanical_scientific-gig-v2: 3
     date: cap 26 vs original 32 (0.81x) -- shrunk to clear artwork, or a size misread?
     venue: cap 25 vs original 29 (0.86x) -- shrunk to clear artwork, or a size misread?
     footer: cap 15 vs original 18 (0.83x) -- shrunk to clear artwork, or a size misread?
-child_paint_pro_typography-fete-v2: 6
+child_paint_pro_typography-fete-v2: 5
     title: lighter than the original (stroke 0.151 vs 0.210 of cap, 0.72x)
     attraction1: heavier than the original (stroke 0.250 vs 0.166 of cap, 1.50x)
     footer0: lighter than the original (stroke 0.172 vs 0.231 of cap, 0.75x)
     type-like band left in the artwork at y436..495 x803..995 (8 glyphs, cap 56) -- unreset copy, or the artwork's own lettering?
-    type-like band left in the artwork at y506..537 x660..786 (8 glyphs, cap 19) -- unreset copy, or the artwork's own lettering?
     type-like band left in the artwork at y708..725 x337..400 (5 glyphs, cap 15) -- unreset copy, or the artwork's own lettering?
 concrete_art-fete-v2: 2
     venue: cap 31 vs original 27 (1.15x) -- shrunk to clear artwork, or a size misread?
@@ -38,13 +37,12 @@ contemporary_editorial-gig-v2: 3
     headliner: lighter than the original (stroke 0.116 vs 0.163 of cap, 0.71x)
     headliner: lighter than the original (stroke 0.116 vs 0.165 of cap, 0.70x)
     ticket_source: heavier than the original (stroke 0.200 vs 0.105 of cap, 1.90x)
-contemporary_flat_illustration-fete-v2: 8
+contemporary_flat_illustration-fete-v2: 7
     venue: lighter than the original (stroke 0.061 vs 0.188 of cap, 0.32x)
     title/date/venue/beneficiary: left-aligned in the original (edge 44); rendered edges 23, 23, 44, 45, 44
     footer1: centre-aligned in the original (edge 516); rendered edges 477
     footer0: 85% of the original's ink is still in the artwork (a ghost under the reset line)
-    type-like band left in the artwork at y712..854 x31..1006 (34 glyphs, cap 33) -- unreset copy, or the artwork's own lettering?
-    type-like band left in the artwork at y653..751 x782..954 (7 glyphs, cap 99) -- unreset copy, or the artwork's own lettering?
+    type-like band left in the artwork at y697..898 x33..951 (6 glyphs, cap 17) -- unreset copy, or the artwork's own lettering?
     type-like band left in the artwork at y915..949 x536..859 (5 glyphs, cap 19) -- unreset copy, or the artwork's own lettering?
     type-like band left in the artwork at y1095..1128 x74..431 (14 glyphs, cap 34) -- unreset copy, or the artwork's own lettering?
 cubist_exhibition-fete-v2: 4
@@ -54,7 +52,7 @@ cubist_exhibition-fete-v2: 4
     date/venue/beneficiary/attractions_label/attraction0/attraction1/attraction2/attraction3/attraction4/attraction5/attraction6/attraction7/footer0/footer1: centre-aligned in the original (edge 510); rendered edges 518, 556, 478, 502, 507, 508, 508, 501, 501, 504, 509, 498, 502, 463
 cubist_exhibition-gig-v2: 3
     headliner: lighter than the original (stroke 0.170 vs 0.261 of cap, 0.65x)
-    headliner: lighter than the original (stroke 0.170 vs 0.267 of cap, 0.64x)
+    headliner: lighter than the original (stroke 0.182 vs 0.267 of cap, 0.68x)
     type-like band left in the artwork at y1520..1535 x110..613 (26 glyphs, cap 16) -- unreset copy, or the artwork's own lettering?
 cut_paper_matisse-fete-v2: 2
     title: lighter than the original (stroke 0.132 vs 0.182 of cap, 0.72x)
@@ -116,7 +114,7 @@ golden_age_travel-gig-v2: 5
     venue: cap 35 vs original 41 (0.85x) -- shrunk to clear artwork, or a size misread?
     presenter/headliner/support: centre-aligned in the original (edge 516); rendered edges 516, 514, 514, 498
     date/venue/tickets/ticket_source/footer: centre-aligned in the original (edge 515); rendered edges 528, 536, 515, 514, 514
-japonisme-fete-v2: 14
+japonisme-fete-v2: 15
     title: cap 105 vs original 131 (0.80x) -- shrunk to clear artwork, or a size misread?
     title: lighter than the original (stroke 0.125 vs 0.167 of cap, 0.75x)
     beneficiary: cap 14 vs original 20 (0.70x) -- shrunk to clear artwork, or a size misread?
@@ -131,13 +129,14 @@ japonisme-fete-v2: 14
     footer0: cap 18 vs original 23 (0.78x) -- shrunk to clear artwork, or a size misread?
     footer1: heavier than the original (stroke 0.211 vs 0.118 of cap, 1.79x)
     footer0/footer1: centre-aligned in the original (edge 816); rendered edges 782, 820, 818
+    type-like band left in the artwork at y270..375 x131..372 (11 glyphs, cap 103) -- unreset copy, or the artwork's own lettering?
 japonisme-gig-v2: 5
     presenter: cap 14 vs original 17 (0.82x) -- shrunk to clear artwork, or a size misread?
     headliner: cap 109 vs original 135 (0.81x) -- shrunk to clear artwork, or a size misread?
     venue: cap 19 vs original 33 (0.58x) -- shrunk to clear artwork, or a size misread?
     venue: lighter than the original (stroke 0.105 vs 0.182 of cap, 0.58x)
     ticket_source: cap 11 vs original 14 (0.79x) -- shrunk to clear artwork, or a size misread?
-low_poly-fete-v2: 14
+low_poly-fete-v2: 15
     title: cap 79 vs original 139 (0.57x) -- shrunk to clear artwork, or a size misread?
     title: lighter than the original (stroke 0.151 vs 0.200 of cap, 0.75x)
     attraction0: lighter than the original (stroke 0.069 vs 0.222 of cap, 0.31x)
@@ -152,6 +151,7 @@ low_poly-fete-v2: 14
     footer1: cap 29 vs original 25 (1.16x) -- shrunk to clear artwork, or a size misread?
     title/date/venue: centre-aligned in the original (edge 524); rendered edges 524, 519, 552
     title: blanking repainted 1876 px of artwork round the line
+    attractions_label: 18% of the original's ink is still in the artwork (a ghost under the reset line)
 low_poly-gig-v2: 1
     date: cap 40 vs original 35 (1.14x) -- shrunk to clear artwork, or a size misread?
 mid_century_modern_graphic-fete-v2: 7
@@ -160,7 +160,7 @@ mid_century_modern_graphic-fete-v2: 7
     title: cap 253 vs original 219 (1.16x) -- shrunk to clear artwork, or a size misread?
     date: cap 59 vs original 100 (0.59x) -- shrunk to clear artwork, or a size misread?
     date: heavier than the original (stroke 0.203 vs 0.058 of cap, 3.53x)
-    attractions_label: lighter than the original (stroke 0.189 vs 0.256 of cap, 0.74x)
+    attractions_label: lighter than the original (stroke 0.189 vs 0.240 of cap, 0.78x)
     attractions_label: capitals in the original, mixed case in the render
 mid_century_modern_graphic-gig-v2: 3
     support: cap 27 vs original 31 (0.87x) -- shrunk to clear artwork, or a size misread?
@@ -177,8 +177,9 @@ mimeograph-fete-v2: 10
     attraction1: cap 18 vs original 14 (1.29x) -- shrunk to clear artwork, or a size misread?
     type-like band left in the artwork at y617..629 x380..557 (5 glyphs, cap 13) -- unreset copy, or the artwork's own lettering?
     type-like band left in the artwork at y1040..1097 x766..914 (19 glyphs, cap 30) -- unreset copy, or the artwork's own lettering?
-minimalism_art-fete-v2: 1
+minimalism_art-fete-v2: 2
     title: lighter than the original (stroke 0.152 vs 0.192 of cap, 0.79x)
+    venue: heavier than the original (stroke 0.286 vs 0.143 of cap, 2.00x)
 minimalism_art-gig-v2: 4
     date: cap 19 vs original 23 (0.83x) -- shrunk to clear artwork, or a size misread?
     venue: cap 20 vs original 23 (0.87x) -- shrunk to clear artwork, or a size misread?
@@ -211,11 +212,10 @@ orphism-gig-v2: 9
     ticket_source: lighter than the original (stroke 0.091 vs 0.182 of cap, 0.50x)
     footer: lighter than the original (stroke 0.091 vs 0.182 of cap, 0.50x)
     type-like band left in the artwork at y512..545 x524..626 (7 glyphs, cap 25) -- unreset copy, or the artwork's own lettering?
-penny_dreadful-gig-v2: 4
+penny_dreadful-gig-v2: 3
     headliner: lighter than the original (stroke 0.189 vs 0.259 of cap, 0.73x)
     support: cap 26 vs original 30 (0.87x) -- shrunk to clear artwork, or a size misread?
     presenter/headliner/support: centre-aligned in the original (edge 514); rendered edges 518, 469, 504, 528
-    type-like band left in the artwork at y410..485 x959..1023 (6 glyphs, cap 41) -- unreset copy, or the artwork's own lettering?
 pixel_art-fete-v2: 7
     title: cap 151 vs original 127 (1.19x) -- shrunk to clear artwork, or a size misread?
     attractions_label: cap 21 vs original 25 (0.84x) -- shrunk to clear artwork, or a size misread?
@@ -236,24 +236,21 @@ pixel_art-gig-v2: 11
     footer: heavier than the original (stroke 0.320 vs 0.174 of cap, 1.84x)
     type-like band left in the artwork at y13..61 x14..51 (5 glyphs, cap 21) -- unreset copy, or the artwork's own lettering?
     type-like band left in the artwork at y13..61 x970..1009 (5 glyphs, cap 21) -- unreset copy, or the artwork's own lettering?
-risograph-fete-v2: 13
-    title: heavier than the original (stroke 0.120 vs 0.082 of cap, 1.46x)
+risograph-fete-v2: 10
+    title: heavier than the original (stroke 0.120 vs 0.078 of cap, 1.53x)
     title: heavier than the original (stroke 0.120 vs 0.091 of cap, 1.31x)
     venue: capitals in the original, mixed case in the render
     attraction2: cap 21 vs original 49 (0.43x) -- shrunk to clear artwork, or a size misread?
     attraction2: heavier than the original (stroke 0.190 vs 0.131 of cap, 1.45x)
     attraction4: cap 26 vs original 23 (1.13x) -- shrunk to clear artwork, or a size misread?
-    attraction2: 64% of the original's ink is still in the artwork (a ghost under the reset line)
-    attraction4: 52% of the original's ink is still in the artwork (a ghost under the reset line)
+    attraction2: 63% of the original's ink is still in the artwork (a ghost under the reset line)
+    attraction4: 51% of the original's ink is still in the artwork (a ghost under the reset line)
     footer1: 30% of the original's ink is still in the artwork (a ghost under the reset line)
-    type-like band left in the artwork at y707..721 x358..384 (5 glyphs, cap 15) -- unreset copy, or the artwork's own lettering?
-    type-like band left in the artwork at y795..845 x333..404 (5 glyphs, cap 51) -- unreset copy, or the artwork's own lettering?
-    type-like band left in the artwork at y1033..1074 x314..381 (5 glyphs, cap 32) -- unreset copy, or the artwork's own lettering?
     type-like band left in the artwork at y1219..1243 x345..383 (6 glyphs, cap 23) -- unreset copy, or the artwork's own lettering?
 risograph-gig-v2: 11
     presenter: lighter than the original (stroke 0.118 vs 0.214 of cap, 0.55x)
     headliner: cap 198 vs original 285 (0.69x) -- shrunk to clear artwork, or a size misread?
-    headliner: heavier than the original (stroke 0.100 vs 0.078 of cap, 1.27x)
+    headliner: heavier than the original (stroke 0.100 vs 0.077 of cap, 1.30x)
     headliner: capitals in the original, mixed case in the render
     headliner: heavier than the original (stroke 0.112 vs 0.088 of cap, 1.27x)
     headliner: capitals in the original, mixed case in the render
@@ -261,14 +258,14 @@ risograph-gig-v2: 11
     support: heavier than the original (stroke 0.177 vs 0.070 of cap, 2.52x)
     presenter/headliner/support: left-aligned in the original (edge 36); rendered edges 24, 33, 33, 40, 43
     support: 41% of the original's ink is still in the artwork (a ghost under the reset line)
-    support: blanking repainted 8153 px of artwork round the line
+    support: blanking repainted 7757 px of artwork round the line
 screenprint_pop-fete-v2: 17
     title: runs off the page (ink x 0..859)
     title: lighter than the original (stroke 0.172 vs 0.244 of cap, 0.70x)
     title: capitals in the original, mixed case in the render
     title: runs off the page (ink x 0..1007)
     title: cap 214 vs original 186 (1.15x) -- shrunk to clear artwork, or a size misread?
-    title: lighter than the original (stroke 0.140 vs 0.177 of cap, 0.79x)
+    title: lighter than the original (stroke 0.143 vs 0.183 of cap, 0.78x)
     date: runs off the page (ink x 0..1016)
     venue: cap 37 vs original 43 (0.86x) -- shrunk to clear artwork, or a size misread?
     attraction1: heavier than the original (stroke 0.381 vs 0.286 of cap, 1.33x)
@@ -278,12 +275,12 @@ screenprint_pop-fete-v2: 17
     attraction7: heavier than the original (stroke 0.381 vs 0.286 of cap, 1.33x)
     title/date/venue/attractions_label/attraction0/attraction1/attraction2/attraction3/attraction4/attraction5/attraction6/attraction7/footer0: centre-aligned in the original (edge 515); rendered edges 430, 504, 508, 514, 510, 500, 492, 532, 497, 494, 511, 511, 508, 508, 522
     date: blanking repainted 549 px of artwork round the line
-    type-like band left in the artwork at y1106..1132 x85..942 (38 glyphs, cap 27) -- unreset copy, or the artwork's own lettering?
-    type-like band left in the artwork at y1487..1506 x80..942 (50 glyphs, cap 19) -- unreset copy, or the artwork's own lettering?
+    type-like band left in the artwork at y1106..1133 x85..942 (38 glyphs, cap 27) -- unreset copy, or the artwork's own lettering?
+    type-like band left in the artwork at y1487..1506 x79..943 (50 glyphs, cap 20) -- unreset copy, or the artwork's own lettering?
 stamp_letterpress_modern-fete-v2: 7
-    title: heavier than the original (stroke 0.164 vs 0.054 of cap, 3.03x)
+    title: heavier than the original (stroke 0.163 vs 0.054 of cap, 3.01x)
     title: cap 169 vs original 149 (1.13x) -- shrunk to clear artwork, or a size misread?
-    title: heavier than the original (stroke 0.164 vs 0.067 of cap, 2.46x)
+    title: heavier than the original (stroke 0.163 vs 0.067 of cap, 2.44x)
     beneficiary: cap 23 vs original 20 (1.15x) -- shrunk to clear artwork, or a size misread?
     footer1: cap 21 vs original 18 (1.17x) -- shrunk to clear artwork, or a size misread?
     title/date/venue: centre-aligned in the original (edge 517); rendered edges 530, 530, 522, 526, 516

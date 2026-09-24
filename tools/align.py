@@ -241,3 +241,69 @@ def assign_copy(lines, copy, max_split=3, wrap_cap_ratio=1.3):
             else f'weak alignment (mean cost {best_cost:.2f})')
     return assigned, note, best_cost
 
+
+
+def apply_assign(lines, copy, assigned, specs):
+    """Override the aligner with assignments someone read off the overlay.
+
+    Reading which band holds which copy line is one look at overlay.py for
+    Claude, and a heuristic arms race for code. So the aligner proposes and a
+    spec disposes: each `key=SPEC` is
+
+        key=#3          band 3 as numbered on the overlay
+        key=#1+#2       a line wrapped over bands 1 and 2
+        key=512,1250    the band containing that point (how specs are stored,
+                        so they survive re-measurement renumbering the bands;
+                        several points are separated by ';')
+        key=none        this copy line is not on the poster, or not to reset
+
+    A band given to a key is taken from whatever the aligner gave it to.
+    Returns (assigned, points) where points is the specs rewritten as
+    coordinates, for storing with the solution.
+    """
+    if not specs:
+        return assigned, []
+    texts = {c['key']: c['text'] for c in copy}
+    by_key = {a['key']: a for a in assigned}
+    points = []
+    for spec in specs:
+        key, _, val = spec.partition('=')
+        key, val = key.strip(), val.strip()
+        if key not in texts:
+            raise SystemExit(f'--assign {spec!r}: no copy line {key!r}; have '
+                             + ', '.join(texts))
+        if val == 'none':
+            by_key.pop(key, None)
+            points.append(f'{key}=none')
+            continue
+        bands = []
+        for part in (val.split('+') if '#' in val else val.split(';')):
+            part = part.strip()
+            if part.startswith('#'):
+                i = int(part[1:])
+                if not 0 <= i < len(lines):
+                    raise SystemExit(f'--assign {spec!r}: there is no band #{i}')
+            else:
+                x, y = (float(v) for v in part.split(','))
+                hits = [h for h, l in enumerate(lines)
+                        if l['left'] - 4 <= x <= l['right'] + 4
+                        and l['y0'] - 4 <= y <= l['y1'] + 4]
+                if not hits:
+                    raise SystemExit(f'--assign {spec!r}: no band at {x:.0f},{y:.0f} '
+                                     'now; look at the overlay again')
+                i = min(hits, key=lambda h: abs((lines[h]['y0'] + lines[h]['y1']) / 2 - y))
+            bands.append(i)
+        bands = sorted(set(bands), key=lambda i: (lines[i]['y0'], lines[i]['left']))
+        for a in list(by_key.values()):
+            if a['key'] != key:
+                a['bands'] = [b for b in a['bands'] if b not in bands]
+                if not a['bands']:
+                    del by_key[a['key']]
+        by_key[key] = dict(key=key, text=texts[key], bands=bands, assigned_by='hand')
+        points.append(f'{key}=' + ';'.join(
+            f"{(lines[i]['left'] + lines[i]['right']) // 2},{(lines[i]['y0'] + lines[i]['y1']) // 2}"
+            for i in bands))
+    order = [c['key'] for c in copy]
+    out = sorted(by_key.values(),
+                 key=lambda a: (lines[a['bands'][0]]['y0'], order.index(a['key'])))
+    return out, points

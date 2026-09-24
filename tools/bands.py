@@ -8,6 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from analyse import line_metrics, modal_colour, tracking  # noqa: E402
 from components import label, is_artwork, group_lines  # noqa: E402
 from masks import ink_masks, strip_solids, strip_rules  # noqa: E402
+from linemask import line_mask  # noqa: E402
 
 
 def measure_stem(mask, x0, x1, y0, y1):
@@ -164,9 +165,124 @@ def strip_marker(runs):
     return runs, None
 
 
+def resegment(a, runs, rgb, marker=None):
+    """Re-cut a detected line with a mask made from its own two colours.
+
+    Detection masks are built to find type, not to measure it: local contrast
+    in a 61px window fragments light type on a coloured panel and thins every
+    stroke that sits on a mid-tone ground. Measured on mid_century's gig, the
+    white date came out in 57 pieces for 31 characters with 30% of its ink
+    missing, so it read as a lighter weight and was set in one.
+
+    Once the band is found its ink colour is known, and so is the ground round
+    it: cut every pixel at the midpoint between the two (linemask.line_mask).
+    Components are kept only where they touch a run the detection found, so
+    artwork of a similar colour in the same box is not swept in -- the runs are
+    seeds, the two-colour mask decides their true extent.
+
+    Returns (runs, mask, box, ground_hex, ink_hex), or None to keep the detection's
+    measurement: no usable ground, or a result that no longer looks like a
+    line of glyphs.
+    """
+    from scipy import ndimage
+    H, W = a.shape[:2]
+    x0, x1 = min(r[0] for r in runs), max(r[1] for r in runs)
+    y0, y1 = min(r[2] for r in runs), max(r[3] for r in runs)
+    pad = max(2, (y1 - y0 + 1) // 8)
+    box = (max(0, x0 - pad), max(0, y0 - pad), min(W - 1, x1 + pad), min(H - 1, y1 + pad))
+    m, ground = line_mask(a, box, rgb)
+    if m is None:
+        return None
+    # Polarity. A dark mask run over white type on a navy panel finds the navy
+    # slivers BETWEEN the letters, and the band is measured from its gaps:
+    # navy "ink", widths squashed to 0.6, a handwriting face chosen to fit.
+    # Letters are the minority of their line's box (0.38-0.63 even for heavy
+    # condensed capitals); a ground is the majority. Say so, and let dedupe
+    # prefer the band that found the letters themselves (the light mask
+    # usually has them).
+    #
+    # Density alone is not enough: an ultra-black condensed headline fills
+    # 0.7 of its own box too. The difference is what lies beyond the line. A
+    # ground carries on past it -- the padding frame round the band is the
+    # panel's colour -- while letters stop, and paper surrounds them.
+    core = m[y0 - box[1]:y1 - box[1] + 1, x0 - box[0]:x1 - box[0] + 1]
+    frame = np.ones_like(m)
+    frame[y0 - box[1]:y1 - box[1] + 1, x0 - box[0]:x1 - box[0] + 1] = False
+    if core.mean() > 0.5 and frame.any() and m[frame].mean() > 0.5:
+        return 'ground'
+    ink = rgb
+    lab, n = ndimage.label(m, np.ones((3, 3), bool))
+    if not n:
+        return None
+    seeds = set()
+    for r in runs:
+        sub = lab[r[2] - box[1]:r[3] - box[1] + 1, r[0] - box[0]:r[1] - box[0] + 1]
+        seeds.update(np.unique(sub[sub > 0]).tolist())
+    objs = ndimage.find_objects(lab)
+    if marker:
+        # Leave the list marker out -- but only a component that IS the marker.
+        # In pixel type the two-colour mask can join a bullet to the whole line,
+        # and dropping that component deletes the line.
+        mx0, my0, mx1, my1 = marker
+        sub = lab[max(0, my0 - box[1]):my1 - box[1] + 1, max(0, mx0 - box[0]):mx1 - box[0] + 1]
+        for i in np.unique(sub[sub > 0]).tolist():
+            ys, xs = objs[i - 1]
+            if box[0] + xs.stop - 1 <= mx1 + 2:
+                seeds.discard(i)
+    if not seeds:
+        return None
+    keep = np.isin(lab, sorted(seeds))
+    # Specks are ink but not glyphs. A distressed or mimeographed title comes
+    # out of the two-colour mask as a few letters and hundreds of flecks, and
+    # counting the flecks as runs moves the baseline (the most common run
+    # bottom) into the middle of the letters. They stay in the mask, where
+    # they count towards stroke weight. The floor scales with the line, so the
+    # dot of an i in 20px type (~9px) is kept.
+    h0 = y1 - y0 + 1
+    sizes = ndimage.sum(m, lab, range(1, n + 1))
+    floor = max(4.0, (0.08 * h0) ** 2)
+    # The two-colour mask may refine a glyph's edges by a few px, or join the
+    # fragments of a light letter back into one, but it must not grow a letter
+    # into artwork of the same colour that happens to touch it -- a teal V
+    # running into a teal ornament moved mid_century's title margin by 32px and
+    # broke its wrap. So each component must stay within the detected runs it
+    # grew from, plus a small allowance.
+    grow = max(3, int(0.12 * h0))
+    new = []
+    for i, sl in enumerate(objs, start=1):
+        if i in seeds and sl is not None and sizes[i - 1] >= floor:
+            ys, xs = sl
+            c = (box[0] + xs.start, box[0] + xs.stop - 1,
+                 box[1] + ys.start, box[1] + ys.stop - 1)
+            src = [r for r in runs if not (r[1] < c[0] or r[0] > c[1]
+                                           or r[3] < c[2] or r[2] > c[3])]
+            if src and (c[0] < min(r[0] for r in src) - grow
+                        or c[1] > max(r[1] for r in src) + grow
+                        or c[2] < min(r[2] for r in src) - grow
+                        or c[3] > max(r[3] for r in src) + grow):
+                return None
+            new.append(c)
+    if not new:
+        return None
+    new.sort()
+    # Sanity: a seed that grew into a panel or a shape is not a glyph. Fall
+    # back rather than measure a line as tall as the artwork it touched.
+    # ...and a re-cut that lost part of the line (ink too close to its ground
+    # to separate, as with cream type on pale paper) is worse than none.
+    # (Not when polarity was swapped: then the detection's extent is the
+    # panel's, which runs past the letters, and the letters define the line.)
+    span = max(r[1] for r in new) - min(r[0] for r in new) + 1
+    if ink == rgb and span < 0.9 * (x1 - x0 + 1):
+        return None
+    if max(r[3] - r[2] + 1 for r in new) > 1.6 * h0 or \
+            max(r[1] - r[0] + 1 for r in new) > max(0.6 * (x1 - x0 + 1), 3 * h0):
+        return None
+    return new, keep, box, '#%02X%02X%02X' % tuple(int(v) for v in ground), ink
+
+
 def find_lines(img_path, min_glyphs=2, solid_radius=24,
                rule_length=160, rule_thick=5, contrast=40, window=61,
-               wrap_cap_ratio=1.3, exclude=()):
+               wrap_cap_ratio=1.3, exclude=(), reseg=True):
     """`exclude` is a list of (x0, y0, x1, y1) boxes to ignore when looking for
     type. A finely drawn illustration -- an engraving, a map, a crowd of small
     marks -- breaks into hundreds of components that behave like glyphs: they
@@ -237,7 +353,9 @@ def find_lines(img_path, min_glyphs=2, solid_radius=24,
             runs, marker = strip_marker(
                 [(c['box'][0], c['box'][2], c['box'][1], c['box'][3]) for c in grp])
             lm = line_metrics(runs)
-            if not lm or len(grp) < min_glyphs:
+            # Count what is left once a list marker is set aside: a marker and
+            # two specks is not three glyphs.
+            if not lm or len(runs) < min_glyphs:
                 rejected.append(dict(colour=colour, y0=int(min(r[2] for r in runs)),
                                      y1=int(max(r[3] for r in runs)),
                                      why=f'only {len(grp)} glyph components'))
@@ -277,7 +395,19 @@ def find_lines(img_path, min_glyphs=2, solid_radius=24,
                     lab, n = ndimage.label(box)
                     widest = max((sl[1].stop - sl[1].start
                                   for sl in ndimage.find_objects(lab)), default=0)
-                    if widest < 0.6 * box.shape[1]:
+                    # Unless the dark band here has already been shown to be a
+                    # ground -- its "ink" filling most of its own line -- in
+                    # which case these light shapes are letters knocked out of
+                    # it, not holes in it. White type on a navy panel and the
+                    # counters of navy type are mirror images; of the pair,
+                    # exactly one is the ground.
+                    ground_here = any(
+                        l.get('is_ground') and l['colour'] == 'dark'
+                        and min(l['y1'], y1_) - max(l['y0'], y0_) > 0.5 * (y1_ - y0_)
+                        and min(l['right'], lm['right']) - max(l['left'], lm['left'])
+                        > 0.5 * (lm['right'] - lm['left'])
+                        for l in lines)
+                    if widest < 0.6 * box.shape[1] and not ground_here:
                         ok, why = False, f'counters of dark lettering ({inked:.0%} dark ink)'
             if not ok:
                 rejected.append(dict(colour=colour, y0=int(lm['capTop']),
@@ -298,6 +428,22 @@ def find_lines(img_path, min_glyphs=2, solid_radius=24,
                                      for r in runs))), 'panel')
                 continue
             y0, y1 = int(min(r[2] for r in runs)), int(max(r[3] for r in runs))
+            rgb = '#%02X%02X%02X' % tuple(np.median(a[y0:y1 + 1][mask[y0:y1 + 1]], 0).astype(int))
+            # Measure with the line's own two colours, not the detection mask.
+            mmask, mbox, ground = mask, (0, 0), None
+            seg = resegment(a, runs, rgb, marker) if reseg else None
+            is_ground = seg == 'ground'
+            if is_ground:
+                seg = None
+            if seg:
+                runs, mmask, box_, ground, rgb = seg
+                mbox = (box_[0], box_[1])
+                lm = line_metrics(runs) or lm
+                y0, y1 = int(min(r[2] for r in runs)), int(max(r[3] for r in runs))
+            ox, oy = mbox
+
+            def region(yy0, yy1, xx0, xx1):
+                return mmask[max(0, yy0 - oy):yy1 - oy + 1, max(0, xx0 - ox):xx1 - ox + 1]
             # Sample the stem from something glyph-shaped. The tallest run can
             # be several touching letters or a rule, which gives a nonsense
             # ratio (stems wider than the cap height).
@@ -306,8 +452,7 @@ def find_lines(img_path, min_glyphs=2, solid_radius=24,
             tall = max(singles or runs, key=lambda r: r[3] - r[2])
             lines.append(dict(
                 colour=colour,
-                rgb='#%02X%02X%02X' % tuple(
-                    np.median(a[y0:y1 + 1][mask[y0:y1 + 1]], 0).astype(int)),
+                rgb=rgb, ground=ground, is_ground=is_ground,
                 y0=y0, y1=y1,
                 baseline=int(lm['base'] + 1), cap_top=int(lm['capTop']),
                 cap=int(lm['cap']), x_height=int(lm['xh']),
@@ -315,11 +460,12 @@ def find_lines(img_path, min_glyphs=2, solid_radius=24,
                 left=int(lm['left']), right=int(lm['right']),
                 width=int(lm['right'] - lm['left'] + 1),
                 n_runs=int(lm['nruns']),
-                density=round(float(mask[y0:y1 + 1, lm['left']:lm['right'] + 1].mean()), 4),
+                density=round(float(region(y0, y1, lm['left'], lm['right']).mean()), 4),
                 texture=0.0,
                 slope=round(baseline_fit(runs, lm['cap'])[0], 2),
                 warp=round(baseline_fit(runs, lm['cap'])[1], 3),
-                stem_ratio=measure_stem(mask, *tall[:2], tall[2], tall[3]),
+                stem_ratio=measure_stem(mmask, tall[0] - ox, tall[1] - ox,
+                                        tall[2] - oy, tall[3] - oy),
                 runs=[[int(v) for v in r] for r in runs],
                 marker=marker,
                 track=tracking(runs, int(lm['cap'])),
@@ -462,7 +608,10 @@ def dedupe(lines, rejected):
         return (hi - lo + 1) / max(1, span)
 
     kept = []
-    for cand in sorted(lines, key=lambda l: -l['n_runs'] * l['cap']):
+    # A band whose "ink" is really the ground between letters (see resegment)
+    # loses to any band that found the letters, however many runs it has.
+    for cand in sorted(lines, key=lambda l: (l.get('is_ground', False),
+                                             -l['n_runs'] * l['cap'])):
         dup = None
         for k in kept:
             if (overlap(cand, k, 'y0', 'y1') > 0.5

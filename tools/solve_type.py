@@ -21,7 +21,7 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from bands import find_lines, eff_width  # noqa: E402
 from copytext import load_copy  # noqa: E402
-from align import assign_copy  # noqa: E402
+from align import assign_copy, apply_assign  # noqa: E402
 from masks import ink_masks  # noqa: E402
 from analyse import modal_colour  # noqa: E402
 from svgkit import Face, render_glyph  # noqa: E402
@@ -356,11 +356,14 @@ def confidence(cands):  # noqa
 
 
 # ------------------------------------------------------------------- main
-def solve(image, event, keep=24, wrap_cap_ratio=1.3, **measure_opts):
+def solve(image, event, keep=24, wrap_cap_ratio=1.3, assign=None, **measure_opts):
     m = find_lines(image, **measure_opts)
     copy = load_copy(event)
     assigned, note, cost = assign_copy(m['lines'], copy,
                                        wrap_cap_ratio=wrap_cap_ratio)
+    assigned, assign_points = apply_assign(m['lines'], copy, assigned, assign)
+    if assign_points:
+        note = f"{note}; {len(assign_points)} line(s) assigned by hand"
     faces = load_index()
 
     # Posters set their copy in the case the design calls for, and plenty set
@@ -439,11 +442,15 @@ def solve(image, event, keep=24, wrap_cap_ratio=1.3, **measure_opts):
         if conf != 'high':
             ambiguities.append(dict(kind='face_choice', group=kind, confidence=conf,
                                     top=[c['face']['family'] for c in cands[:3]]))
-    if cost > 0.25:
+    # A weak alignment blocks the build -- unless someone has looked at the
+    # overlay and said where the lines are, in which case the aligner's cost
+    # is no longer the evidence.
+    if cost > 0.25 and not assign_points:
         ambiguities.append(dict(kind='weak_alignment', detail=note,
                                 mean_cost=round(cost, 3)))
 
     return dict(image=image, event=event, size=m['size'], paper=m['paper'],
+                assign_points=assign_points,
                 median_texture=round(med_tex, 2),
                 alignment=note, alignment_cost=round(cost, 3),
                 lines=m['lines'],   # keeps per-glyph boxes: the builder blanks

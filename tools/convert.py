@@ -26,7 +26,7 @@ import sitepaths as poster_site  # noqa: E402
 
 DEFAULTS = dict(artwork='mask', face=[], solid_radius=24, rule_length=160,
                 rule_thick=5, min_glyphs=3, contrast=40, window=61,
-                wrap_cap_ratio=1.3, exclude=[], knockout=[])
+                wrap_cap_ratio=1.3, exclude=[], knockout=[], assign=[])
 # Ambiguities that mean the copy is on the wrong lines. Building then only
 # produces a confident-looking wrong poster.
 BLOCKING = ('weak_alignment', 'no_alignment')
@@ -69,6 +69,9 @@ def main():
                     metavar='X0,Y0,X1,Y1',
                     help='a paper-coloured panel knocked out of a shape, which '
                          'masking cannot reconstruct; repaint it exactly')
+    ap.add_argument('--assign', action='append', default=[], metavar='KEY=#N[+#M]',
+                    help='put copy line KEY on band #N (numbered by overlay.py), '
+                         'or KEY=none; overrides the aligner; repeatable')
     ap.add_argument('--keep', type=int, default=24)
     ap.add_argument('--fresh', action='store_true',
                     help='ignore the knobs stored with an earlier solution')
@@ -101,8 +104,10 @@ def main():
     s = solve(src, a.event, a.keep, min_glyphs=k['min_glyphs'],
               solid_radius=k['solid_radius'], rule_length=k['rule_length'],
               rule_thick=k['rule_thick'], contrast=k['contrast'], window=k['window'],
-              wrap_cap_ratio=k['wrap_cap_ratio'],
+              wrap_cap_ratio=k['wrap_cap_ratio'], assign=k['assign'],
               exclude=[tuple(int(v) for v in x.split(',')) for x in k['exclude']])
+    # Stored as points, not band numbers: re-measurement may renumber bands.
+    k['assign'] = s['assign_points']
     s['knobs'] = k
     summarise(s)
     json.dump(s, open(soln, 'w'), indent=1)
