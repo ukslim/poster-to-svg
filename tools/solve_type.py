@@ -249,13 +249,23 @@ def stage1(group, lines, faces, feats=None, keep=SHAPE_POOL, brief=None):
         fd, parts_ = (distance(feats, f['record']['features'])
                       if feats else (0.0, {}))
         # System faces carry no tags and never ship; keep them neutral.
+        tags = f['record'].get('tags', {})
         ch = (0.25 if f['record']['source'] == 'system'
-              else mismatch(brief, f['record'].get('tags', {}))) if brief else 0.0
+              else mismatch(brief, tags)) if brief else 0.0
+        # Without a brief saying otherwise, a monospace face is an unlikely
+        # answer: posters set display and text type proportionally, and a
+        # monospace capital line can come out level with a condensed one on
+        # shape alone (wpa_new_deal's title went to Geist Mono). A brief that
+        # names Monospace -- a typewriter style -- lifts this.
+        if '/Monospace/Monospace' in tags and not (brief and '/Monospace/Monospace' in brief):
+            ch_prior = 0.3
+        else:
+            ch_prior = 0.0
         score = (abs(np.log(med)) * 0.8
                  + spread * 1.8
                  + (float(np.mean(xerr)) * 1.2 if xerr else 0.0)
                  + FEATURE_WEIGHT * fd
-                 + CHARACTER_WEIGHT * max(0.0, ch - CHARACTER_FREE))
+                 + CHARACTER_WEIGHT * max(0.0, ch - CHARACTER_FREE) + ch_prior)
         out.append(dict(face=f, width_ratio=round(med, 4), spread=round(spread, 4),
                         x_err=round(float(np.mean(xerr)), 4) if xerr else None,
                         features=round(fd, 3), feature_parts=parts_,

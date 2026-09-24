@@ -41,6 +41,7 @@ def texts(svg):
         a, body = m.group(1), m.group(2)
         g = lambda k: (re.search(rf'{k}="([^"]*)"', a) or [None, None])[1]
         out.append(dict(cls=g('class') or '', x=float(g('x') or 0),
+                        anchor=g('text-anchor') or 'start',
                         y=float(g('y') or 0), size=float(g('font-size') or 0),
                         text=html.unescape(re.sub(r'<[^>]+>', '', body))))
     return out
@@ -174,9 +175,10 @@ def check(path, soln=None, name=None):
             if not f:
                 continue
             w = width(list(f.values())[0], t['text'], t['size'])
-            if t['x'] + w > page_w + 2:
+            x0 = t['x'] - {'middle': w / 2, 'end': w}.get(t['anchor'], 0)
+            if x0 + w > page_w + 2 or x0 < -2:
                 found.append(
-                    f"{t['text'][:28]!r} reaches x={t['x'] + w:.0f} on a "
+                    f"{t['text'][:28]!r} runs {x0:.0f}..{x0 + w:.0f} on a "
                     f"{page_w:.0f}px page.\n"
                     f"      might be fine: this ignores kerning, so it "
                     f"over-estimates by a little; only worry past ~1%.")

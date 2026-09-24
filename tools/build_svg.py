@@ -91,16 +91,45 @@ def _pick(group, name):
     return from_catalogue(name, group)
 
 
+STYLE_WEIGHTS = {'thin': 100, 'extralight': 200, 'light': 300, 'regular': 400,
+                 'book': 400, 'medium': 500, 'semibold': 600, 'demibold': 600,
+                 'bold': 700, 'extrabold': 800, 'heavy': 900, 'black': 900}
+
+
 def from_catalogue(name, group=None):
+    """A face named "Family", "Family:600", "Family:600i" or, as older stored
+    overrides do, "Family SemiBold" / "Family Bold Italic"."""
     import catalogue
     fam, _, style = name.partition(':')
     italic = style.endswith('i')
     want = int(style.rstrip('i')) if style.rstrip('i').isdigit() else None
-    hits = [r for r in catalogue.load() if r['family'].lower() == fam.strip().lower()
+    fams = {r['family'].lower() for r in catalogue.load()}
+    fam = fam.strip()
+    if fam.lower() not in fams:
+        words = fam.split()
+        while words and words[-1].lower() in (*STYLE_WEIGHTS, 'italic'):
+            w = words.pop().lower()
+            if w == 'italic':
+                italic = True
+            elif want is None:
+                want = STYLE_WEIGHTS[w]
+        fam = ' '.join(words)
+    hits = [r for r in catalogue.load() if r['family'].lower() == fam.lower()
             and bool(r.get('italic')) == italic and not r.get('wdth')]
     if not hits:
-        raise SystemExit(f'no face {name!r} in the shortlist or the catalogue')
-    r = min(hits, key=lambda r: abs(r['weight'] - (want or 400)))
+        raise SystemExit(
+            f'--face {name!r} is not on the shortlist or in the Google Fonts '
+            f'catalogue (a stored override from the old local corpus?). Choose '
+            f'again: python3 tools/sheet.py SOLUTION, then --face group=#N or '
+            f'--face group="Family:weight"')
+    measured = ((group or {}).get('features') or {}).get('weight')
+    if want is None and measured:
+        # No weight named: the family's style whose stroke weight is closest
+        # to what the poster measured (the old local corpus kept one or two
+        # weights, so a bare family name there meant the heavy one).
+        r = min(hits, key=lambda r: abs((r['features'].get('weight') or 0) - measured))
+    else:
+        r = min(hits, key=lambda r: abs(r['weight'] - (want or 400)))
     path, index = catalogue.face_file(r)
     print(f"  (using {catalogue.label(r)} from the catalogue)")
     return dict(family=r['family'], sub=catalogue.label(r)[len(r['family']) + 1:],
@@ -170,6 +199,9 @@ def place(sol, chosen, shapes=None):
     lines = sol['lines']
     obs = obstacles(sol, shapes)
     out, used = [], {}
+    from layout import anchors
+    anchor_of, block_of = anchors(lines, sorted({b for a in sol['assigned'] for b in a['bands']}),
+                                  sol['size'][0])
     for gname, g in sol['groups'].items():
         c = chosen[gname]
         if not c['embed']:
@@ -245,12 +277,13 @@ def place(sol, chosen, shapes=None):
                           f"{one:.0f}-{big:.0f} -- a band is clamped to clear "
                           f"artwork or the trim because the face runs wider "
                           f"than the original. Check it, or pick a narrower face.")
-            for b, part, size, ls_em in sized:
-                lo, _ = face.ink(part, size, track=ls_em * size)
+            for (b, part, size, ls_em), bi in zip(sized, a['bands']):
                 out.append(dict(group=gname, key=a['key'], text=part,
                                 size=round(size, 2), room=room, ls_em=ls_em,
-                                x=round(b['left'] - lo, 2), y=b['baseline'],
-                                fill=b['rgb'], left=b['left'], cap=b['cap']))
+                                y=b['baseline'], fill=b['rgb'], cap=b['cap'],
+                                left=b['left'], right=b['right'],
+                                anchor=anchor_of.get(bi, 'left'),
+                                block=block_of.get(bi)))
     unify_siblings(out, {g: f for g, (c, f) in used.items()})
     return out, used
 
@@ -291,25 +324,43 @@ def unify_siblings(placed, faces):
                 lo, hi = face.ink(m['text'], size, track=tr * size)
                 if m['room'] and hi - lo > m['room']:
                     size *= m['room'] / (hi - lo)
-                lo, _ = face.ink(m['text'], size, track=tr * size)
-                m['x'] = round(m['left'] - lo, 2)
             m['size'] = round(size, 2)
 
 
-def share_origins(placed, tol=3.0):
-    """Give lines that agree on a left margin exactly the same origin.
+def position(placed, faces, tol=4.0):
+    """Give every line its x, from the edge its block keeps.
 
-    Implied origins normally cluster within a pixel or two: the original aligns
-    text origins, and the ragged ink edges are just different sidebearings.
+    A left-ranged line's origin is its measured left ink edge less the first
+    glyph's sidebearing (text-anchor start). A centred line is anchored at its
+    measured centre and a right-ranged one at its right edge (text-anchor
+    middle / end), with the face's own ink offsets backed out -- so however
+    wide the reset face runs, the browser keeps the line where the design put
+    its edge. Lines of one block that agree on the edge to within `tol` share
+    it exactly: the ragged differences are the generator's, not the design's.
     """
-    body = [p for p in placed if p['cap'] <= np.median([q['cap'] for q in placed])]
-    if len(body) < 3:
-        return placed
-    xs = np.array([p['x'] for p in body])
-    med = float(np.median(xs))
-    if xs.std() < tol:
-        for p in body:
-            p['x'] = round(med, 2)
+    by_block = {}
+    for p in placed:
+        by_block.setdefault((p.get('block'), p['anchor']), []).append(p)
+    for (blk, anchor), members in by_block.items():
+        edge = {'left': lambda p: p['left'], 'right': lambda p: p['right'],
+                'centre': lambda p: (p['left'] + p['right']) / 2}[anchor]
+        vals = [edge(p) for p in members]
+        shared = (blk is not None and len(vals) > 1
+                  and max(vals) - min(vals) <= tol)
+        target = sorted(vals)[len(vals) // 2] if shared else None
+        for p, v in zip(members, vals):
+            face = faces[p['group']]
+            size, tr = p['size'], p.get('ls_em', 0.0) * p['size']
+            lo, hi = face.ink(p['text'], size, track=tr)
+            adv = (sum(face.adv(ch) for ch in p['text'] if face.has(ch)) * size / face.upem
+                   + tr * len(p['text']))
+            e = target if shared else v
+            if anchor == 'left':
+                p['x'] = round(e - lo, 2)
+            elif anchor == 'centre':
+                p['x'] = round(e - (lo + hi) / 2 + adv / 2, 2)
+            else:
+                p['x'] = round(e - hi + adv, 2)
     return placed
 
 
@@ -699,7 +750,7 @@ def build(sol, chosen, artwork, workdir, title=''):
               if artwork and artwork.startswith('shapes:')
               and not os.path.exists(artwork.split(':', 1)[1]) else None)
     placed, used = place(sol, chosen, shapes)
-    placed = share_origins(placed)
+    placed = position(placed, {g: f for g, (c, f) in used.items()})
     w, h = sol['size']
 
     # Each face is subset to just the glyphs its groups use, so two different
@@ -744,6 +795,8 @@ def build(sol, chosen, artwork, workdir, title=''):
 
     body = '\n'.join(
         f'    <text class="{classes[p["group"]].lower()}" x="{p["x"]}" '
+        + ({'centre': 'text-anchor="middle" ', 'right': 'text-anchor="end" '}
+           .get(p['anchor'], '')) +
         f'y="{p["y"]}" font-size="{p["size"]}" fill="{p["fill"]}"'
         + (f' letter-spacing="{p["ls_em"]:g}em"' if p.get('ls_em') else '') + '>'
         f'{esc(p["text"])}</text>' for p in placed)

@@ -41,8 +41,9 @@ from typefeatures import weight as stroke_weight  # noqa: E402
 from analyse import glyph_runs, line_metrics  # noqa: E402
 
 # How far a line may move off its block's shared edge before it is reported,
-# as a fraction of page width, with a floor in px.
-EDGE_TOL, EDGE_MIN = 0.012, 6
+# as a fraction of page width, with a floor in px -- the same tolerance the
+# builder uses to decide that a block shares an edge.
+from layout import blocks, EDGE_TOL, EDGE_MIN  # noqa: E402
 
 
 # ----------------------------------------------------------------- browser
@@ -165,47 +166,6 @@ def orig_box(b, W, H):
     hp = min(12, int(0.3 * b['cap']) + 2)
     return (max(0, b['left'] - hp), max(0, b['y0'] - 2),
             min(W - 1, b['right'] + hp), min(H - 1, b['y1'] + 2))
-
-
-def blocks(bands, page_w):
-    """Group bands into blocks of type that read as one aligned column, and say
-    how each is aligned: 'left', 'centre', 'right' or None.
-
-    Neighbours in a block overlap horizontally and sit within 2.5 caps of each
-    other vertically. The alignment is whichever edge the lines share most
-    tightly, provided they share it within EDGE_TOL of the page. A single line
-    counts as centred when it sits on the page's centre line.
-    """
-    order = sorted(range(len(bands)), key=lambda i: bands[i]['y0'])
-    groups, cur = [], []
-    for i in order:
-        b = bands[i]
-        if cur:
-            p = bands[cur[-1]]
-            gap = b['y0'] - p['y1']
-            overlap = min(b['right'], p['right']) - max(b['left'], p['left'])
-            if gap > 2.5 * max(b['cap'], p['cap']) or overlap <= 0:
-                groups.append(cur)
-                cur = []
-        cur.append(i)
-    if cur:
-        groups.append(cur)
-    out = []
-    for g in groups:
-        B = [bands[i] for i in g]
-        edges = {'left': [b['left'] for b in B],
-                 'centre': [(b['left'] + b['right']) / 2 for b in B],
-                 'right': [b['right'] for b in B]}
-        if len(B) == 1:
-            c = edges['centre'][0]
-            kind = 'centre' if abs(c - page_w / 2) < EDGE_TOL * page_w else None
-        else:
-            spread = {k: max(v) - min(v) for k, v in edges.items()}
-            kind = min(spread, key=spread.get)
-            if spread[kind] > max(EDGE_MIN, EDGE_TOL * page_w):
-                kind = None
-        out.append((g, kind))
-    return out
 
 
 def edge(m, kind):
