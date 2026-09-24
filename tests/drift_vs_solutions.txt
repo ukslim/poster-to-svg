@@ -1,0 +1,139 @@
+act_up_aids-gig-v2:
+    alignment cost 0.194 -> 0.054
+art_deco-gig-v2:
+    date: [[769, 791, 248, 773]] -> [[1090, 1103, 100, 135]]
+    footer: [[1470, 1493, 347, 692]] -> [[1343, 1512, 26, 995]]
+    headliner: [[480, 500, 370, 652]] -> [[12, 235, 13, 1010]]
+    support: [[563, 600, 239, 782]] -> [[249, 399, 96, 928]]
+    ticket_source: [[1400, 1433, 168, 961]] -> [[1220, 1248, 498, 525], [1256, 1294, 131, 888]]
+    tickets: [[1355, 1386, 279, 734]] -> [[1164, 1207, 178, 854]]
+    venue: [[820, 833, 283, 737]] -> [[1090, 1103, 888, 911]]
+    alignment cost 0.851 -> 0.718
+bauhaus_modernist-fete-v2:
+    footer0: now assigned [[1380, 1416, 74, 590]]
+    alignment cost 0.139 -> 0.092
+bauhaus_modernist-gig-v2:
+    footer: [[1463, 1485, 49, 306]] -> [[1463, 1486, 49, 311]]
+    alignment cost 0.129 -> 0.047
+botanical_scientific-fete-v2:
+    beneficiary: [[587, 604, 51, 453]] -> [[1420, 1436, 51, 102]]
+    date: [[471, 511, 49, 560]] -> [[471, 511, 49, 560], [522, 550, 50, 578]]
+    venue: [[522, 550, 50, 578]] -> [[587, 604, 51, 453]]
+    alignment cost 0.154 -> 0.114
+botanical_scientific-gig-v2:
+    alignment cost 0.14 -> 0.045
+child_paint_pro_typography-fete-v2:
+    alignment cost 0.154 -> 0.384
+concrete_art-gig-v2:
+    alignment cost 0.125 -> 0.039
+constructivist-gig-v2:
+    date: [[1217, 1221, 473, 496], [1324, 1328, 473, 493]] -> [[1185, 1205, 478, 543]]
+    footer: [[1496, 1499, 1, 42]] -> [[1486, 1492, 2, 7], [1499, 1505, 2, 14]]
+    headliner: [[1133, 1139, 490, 507]] -> [[1163, 1175, 489, 535]]
+    presenter: [[556, 573, 768, 1011]] -> [[1239, 1250, 482, 504], [1251, 1266, 458, 504]]
+    support: [[1211, 1217, 479, 503]] -> [[1175, 1185, 482, 526]]
+    ticket_source: [[1486, 1492, 2, 44]] -> [[1368, 1397, 586, 983], [1402, 1427, 653, 975]]
+    tickets: [[1436, 1466, 577, 780]] -> [[1230, 1233, 311, 316], [1240, 1249, 334, 351]]
+    venue: [[1402, 1428, 581, 975]] -> [[1206, 1211, 476, 493], [1211, 1217, 479, 503], [1217, 1221, 473, 485]]
+    alignment cost 0.345 -> 1.228
+contemporary_editorial-gig-v2:
+    alignment cost 0.303 -> 0.474
+contemporary_flat_illustration-fete-v2:
+    attraction0: [[777, 799, 46, 195]] -> [[867, 918, 44, 295]]
+    attraction1: [[830, 857, 47, 425]] -> [[915, 938, 552, 856]]
+    attraction2: [[883, 906, 47, 272]] -> [[975, 1020, 50, 393]]
+    attraction3: [[936, 963, 47, 277]] -> [[1042, 1224, 47, 994]]
+    attraction4: [[989, 1016, 46, 403]] -> [[1220, 1269, 0, 509]]
+    attraction5: [[1042, 1069, 47, 174]] -> [[1279, 1302, 0, 137]]
+    attraction6: [[1096, 1122, 47, 426]] -> [[1297, 1338, 0, 127]]
+    attraction7: [[1148, 1172, 47, 427]] -> [[1207, 1272, 982, 1023]]
+    attractions_label: now assigned [[761, 813, 34, 203]]
+    footer0: [[1337, 1369, 591, 906]] -> [[1288, 1376, 124, 925]]
+    footer1: [[1490, 1515, 205, 826]] -> [[1480, 1515, 208, 796]]
+    alignment cost 0.296 -> 0.404
+cut_paper_matisse-fete-v2:
+    alignment cost 0.052 -> 0.085
+cut_paper_matisse-gig-v2:
+    alignment cost 0.119 -> 0.036
+east_german_defa-gig-v2:
+    alignment cost 0.221 -> 0.159
+factory_records-fete-v2:
+    date: [[910, 942, 54, 799]] -> [[910, 942, 233, 799]]
+    title: [[66, 209, 53, 973], [237, 446, 52, 632]] -> [[439, 830, 52, 971]]
+    alignment cost 0.1 -> 0.274
+factory_records-gig-v2:
+    alignment cost 0.179 -> 0.117
+festival_of_britain-gig-v2:
+    alignment cost 0.126 -> 0.059
+japanese_minimal_poster-fete-v2:
+    alignment cost 0.058 -> 0.124
+low_poly-fete-v2:
+    attraction0: no longer assigned (was [[1047, 1073, 87, 332]])
+    attraction1: no longer assigned (was [[1087, 1121, 87, 713]])
+    attraction2: no longer assigned (was [[1127, 1156, 88, 466]])
+    attraction3: [[1167, 1193, 88, 478]] -> [[1168, 1200, 89, 476]]
+    attraction4: [[1207, 1241, 88, 669]] -> [[1208, 1233, 89, 668]]
+    attractions_label: no longer assigned (was [[998, 1030, 56, 301]])
+    beneficiary: no longer assigned (was [[1394, 1420, 58, 723]])
+    date: [[404, 451, 126, 926]] -> [[1088, 1120, 89, 712]]
+    footer0: [[1433, 1458, 59, 411]] -> [[1434, 1464, 61, 402]]
+    footer1: no longer assigned (was [[1470, 1503, 59, 882]])
+    title: [[65, 202, 85, 962]] -> [[1048, 1073, 88, 331]]
+    venue: [[464, 500, 90, 958]] -> [[1128, 1153, 89, 464]]
+    alignment cost 0.096 -> 0.575
+mid_century_modern_graphic-fete-v2:
+    attractions_label: no longer assigned (was [[750, 779, 67, 358]])
+mid_century_modern_graphic-gig-v2:
+    alignment cost 0.112 -> 0.028
+minimalism_art-gig-v2:
+    alignment cost 0.122 -> 0.05
+neue_sachlichkeit-gig-v2:
+    date: [[1245, 1281, 92, 904]] -> [[1245, 1281, 868, 904]]
+    headliner: [[182, 255, 336, 849]] -> [[1245, 1280, 528, 733]]
+    presenter: [[0, 71, 35, 1023]] -> [[32, 52, 35, 397]]
+    support: [[633, 672, 641, 951]] -> [[633, 644, 448, 468]]
+    venue: [[1337, 1363, 135, 943]] -> [[1331, 1371, 58, 950]]
+    alignment cost 0.193 -> 0.585
+orphism-fete-v2:
+    beneficiary: no longer assigned (was [[1135, 1155, 208, 821]])
+    alignment cost 0.044 -> 0.086
+orphism-gig-v2:
+    alignment cost 0.143 -> 0.285
+risograph-fete-v2:
+    alignment cost 0.315 -> 0.282
+risograph-gig-v2:
+    headliner: [[78, 365, 33, 576], [378, 560, 36, 593], [574, 823, 40, 559]] -> [[78, 365, 33, 576], [378, 560, 36, 593]]
+    alignment cost 0.065 -> 0.183
+screenprint_pop-fete-v2:
+    attraction0: [[1184, 1206, 365, 673]] -> [[1152, 1177, 366, 665]]
+    attraction1: [[1213, 1238, 226, 806]] -> [[1186, 1204, 367, 670]]
+    attraction2: [[1241, 1263, 312, 727]] -> [[1243, 1259, 313, 492]]
+    attraction3: [[1268, 1288, 298, 730]] -> [[1243, 1260, 537, 725]]
+    attraction4: [[1295, 1315, 221, 803]] -> [[1270, 1287, 300, 619]]
+    attraction5: [[1321, 1344, 361, 669]] -> [[1297, 1313, 223, 357]]
+    attraction6: [[1351, 1371, 208, 822]] -> [[1297, 1313, 405, 755]]
+    attraction7: [[1378, 1398, 274, 758]] -> [[1321, 1344, 361, 669]]
+    attractions_label: no longer assigned (was [[1152, 1177, 366, 665]])
+    beneficiary: now assigned [[1353, 1369, 469, 821]]
+    footer0: [[1421, 1466, 77, 959]] -> [[1352, 1369, 249, 424]]
+    footer1: now assigned [[1380, 1396, 294, 644]]
+    alignment cost 0.188 -> 0.282
+soviet_propaganda-gig-v2:
+    date: [[824, 841, 210, 517]] -> [[1040, 1096, 267, 431]]
+    footer: [[1025, 1029, 155, 214]] -> [[1476, 1511, 283, 734]]
+    headliner: [[740, 751, 593, 686]] -> [[387, 477, 64, 201]]
+    presenter: [[617, 634, 232, 630]] -> [[454, 461, 431, 457], [462, 470, 439, 456]]
+    support: [[766, 783, 376, 571]] -> [[1042, 1054, 165, 205]]
+    ticket_source: [[999, 1005, 467, 589]] -> [[1436, 1446, 521, 555]]
+    tickets: [[919, 930, 78, 422]] -> [[1431, 1441, 412, 438]]
+    venue: [[839, 850, 244, 607]] -> [[1095, 1105, 922, 960]]
+    alignment cost 1.014 -> 1.181
+taisho_modern-fete-v2:
+    title: [[51, 195, 73, 860], [211, 374, 71, 853]] -> [[51, 195, 73, 860]]
+wpa_new_deal-fete-v2:
+    alignment cost 0.193 -> 0.093
+zagreb_school_animation-fete-v2:
+    footer0: [[1292, 1313, 49, 315]] -> [[1316, 1344, 375, 438]]
+    alignment cost 0.112 -> 0.166
+
+29 unchanged, 32 changed (15 lower alignment cost, 15 higher)

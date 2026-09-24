@@ -118,6 +118,31 @@ def line_metrics(runs):
                 nruns=len(runs))
 
 
+def tracking(runs, cap):
+    """Excess letter-spacing on a line, in px per gap; 0.0 if it is not tracked.
+
+    Deliberate tracking and a generator's sloppiness look different. Tracked
+    capitals have wide gaps that are EVEN: measured on the posters, 0.26-0.84
+    of cap height with a spread (CV) under 0.36. Ordinary setting has gaps of
+    0.04-0.19; where junk makes them look wider they are wildly uneven (CV 0.7
+    and up). Word spaces are left out by taking gaps near the median, and the
+    face's own sidebearings -- about 0.09 of cap -- are not tracking.
+    """
+    if len(runs) < 6 or not cap:
+        return 0.0
+    r = sorted(runs)
+    g = np.array([b[0] - a[1] - 1 for a, b in zip(r, r[1:])], float)
+    med = float(np.median(g))
+    g = g[g <= max(1.6 * med, med + 0.15 * cap)]
+    if len(g) < 5 or g.mean() <= 0:
+        return 0.0
+    ratio, cv = float(np.median(g)) / cap, float(g.std() / g.mean())
+    if ratio < 0.24 or cv > 0.4:
+        return 0.0
+    return round((ratio - 0.09) * cap, 2)
+
+
+
 def report(path, band=None):
     a = load(path)
     h, w, _ = a.shape

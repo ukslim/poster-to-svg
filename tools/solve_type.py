@@ -19,7 +19,10 @@ import numpy as np
 from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from measure import find_lines, load_copy, assign_copy, ink_masks, eff_width  # noqa: E402
+from bands import find_lines, eff_width  # noqa: E402
+from copytext import load_copy  # noqa: E402
+from align import assign_copy  # noqa: E402
+from masks import ink_masks  # noqa: E402
 from analyse import modal_colour  # noqa: E402
 from svgkit import Face, render_glyph  # noqa: E402
 from shapescore import chamfer  # noqa: E402

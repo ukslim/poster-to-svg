@@ -536,7 +536,7 @@ def artwork_svg(spec, sol, workdir, quality=76):
         # in whatever is behind; the ink itself only costs a thin outline.
         import numpy as np
         from scipy import ndimage
-        from measure import text_ink_mask
+        from blank import text_ink_mask
         # Blank exactly the bands the solution assigned copy to -- the lines
         # it is about to reset -- rather than re-detecting. Re-detection could
         # disagree with the solver (dropping `exclude` once blanked the labels
@@ -598,7 +598,7 @@ def artwork_svg(spec, sol, workdir, quality=76):
             # grazes it, so while they are fused the pair spans the page and
             # looks nothing like a letter. The rules stay in the artwork; only
             # the labelling is done without them.
-            from measure import strip_rules
+            from masks import strip_rules
             detached, _ = strip_rules(left, 120, 5)
             lab, n = ndimage.label(detached, np.ones((3, 3), bool))
             excl = opts['exclude']
@@ -727,6 +727,19 @@ def build(sol, chosen, artwork, workdir, title=''):
 '''
 
 
+def build_file(sol, out, faces=(), artwork='none', workdir='/tmp', title=''):
+    """Resolve faces, build, write `out`. Returns the SVG text.
+
+    `faces` are `group=Name` overrides, as on the command line.
+    """
+    overrides = dict(x.split('=', 1) for x in faces)
+    chosen = {g: pick(sol['groups'][g], overrides.get(g)) for g in sol['groups']}
+    svg = build(sol, chosen, artwork, workdir, title)
+    open(out, 'w').write(svg)
+    print(f'-> {out}  ({len(svg)/1024:.0f}KB)')
+    return svg
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('solution')
@@ -737,13 +750,7 @@ def main():
     ap.add_argument('--title', default='')
     ap.add_argument('--workdir', default='/tmp')
     a = ap.parse_args()
-
-    sol = json.load(open(a.solution))
-    overrides = dict(x.split('=', 1) for x in a.face)
-    chosen = {g: pick(sol['groups'][g], overrides.get(g)) for g in sol['groups']}
-    svg = build(sol, chosen, a.artwork, a.workdir, a.title)
-    open(a.out, 'w').write(svg)
-    print(f'-> {a.out}  ({len(svg)/1024:.0f}KB)')
+    build_file(json.load(open(a.solution)), a.out, a.face, a.artwork, a.workdir, a.title)
 
 
 if __name__ == '__main__':

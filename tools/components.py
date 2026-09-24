@@ -81,7 +81,7 @@ def group_lines(comps, overlap=0.40, gutter=1.5):
         # rows whose gaps pass the tracking test: scattered artwork marks have
         # wide gaps too, and widening the limit for them glued illustration
         # onto three posters' type.
-        from measure import tracking
+        from analyse import tracking
         limit = gutter * h
         runs = [(c['box'][0], c['box'][2], c['box'][1], c['box'][3]) for c in ln]
         if tracking(runs, h):

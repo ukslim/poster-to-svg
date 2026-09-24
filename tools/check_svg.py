@@ -34,10 +34,9 @@ def match(faces, want):
 HERE = os.path.dirname(os.path.abspath(__file__))
 import sitepaths as poster_site  # noqa: E402
 
-bad = []
-targets = sys.argv[1:] or sorted(glob.glob(
-    os.path.join(poster_site.svgs(), '*.svg')))
-for p in targets:
+def check_file(p):
+    """-> (status, problems). Status reads 'ok ...', 'BROKEN' or an escape-hatch
+    note; problems is empty exactly when nothing is wrong."""
     s = strip_label(open(p).read())
 
     faces = {}          # family -> {weight: (cmap, nglyphs)}
@@ -59,14 +58,8 @@ for p in targets:
                    f'raw; write them as numeric references')
 
     if not faces:
-        if enc:
-            bad.append(p)
-            print(f'{os.path.basename(p):46} BROKEN (escape hatch)')
-            for x in enc:
-                print(f'      {x}')
-        else:
-            print(f'{os.path.basename(p):46} -- no embedded fonts (escape hatch)')
-        continue
+        return ('BROKEN (escape hatch)' if enc else
+                '-- no embedded fonts (escape hatch)'), enc
 
     # rules: selector -> (family or None, weight or None)
     rules = {}
@@ -104,14 +97,26 @@ for p in targets:
                          f'{"".join(miss)!r}')
 
     if probs:
-        bad.append(p)
-        print(f'{os.path.basename(p):46} BROKEN')
+        return 'BROKEN', probs
+    return f'ok  ({sum(len(v) for v in faces.values())} face(s))', []
+
+
+def main():
+    bad = []
+    targets = sys.argv[1:] or sorted(glob.glob(
+        os.path.join(poster_site.svgs(), '*.svg')))
+    for p in targets:
+        status, probs = check_file(p)
+        print(f'{os.path.basename(p):46} {status}')
         for x in probs:
             print(f'      {x}')
-    else:
-        print(f'{os.path.basename(p):46} ok  ({sum(len(v) for v in faces.values())} face(s))')
+        if probs:
+            bad.append(p)
+    print(f'\naffected: {len(bad)}')
+    for b in bad:
+        print(' ', b)
+    sys.exit(1 if bad else 0)
 
-print(f'\naffected: {len(bad)}')
-for b in bad:
-    print(' ', b)
-sys.exit(1 if bad else 0)
+
+if __name__ == '__main__':
+    main()

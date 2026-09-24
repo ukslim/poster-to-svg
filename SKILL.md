@@ -46,19 +46,32 @@ python3 $S/manifest.py --todo                          # what is left
 ```
 
 `convert.py` measures the poster, assigns the known copy from
-`_data/events.yaml`, ranks every face in the index, builds the SVG and reports
-a region diff. It writes:
+`_data/events.yaml`, ranks every face in the index and builds the SVG in
+`/tmp/p2svg-{style}-{event}/`. Only if the alignment is sound and `check_svg`
+passes does it publish:
 
 - `assets/poster-svg/{style}-{event}-v2.svg` — the deliverable
 - `assets/poster-svg/solutions/{style}-{event}-v2.json` — so it can be rebuilt without re-deriving
 
+A re-run starts from the knobs stored in that solution (`--exclude`, `--face`,
+`--min-glyphs`...); the command line overrides them and `--fresh` ignores them.
+A weak alignment is not built at all unless `--force`.
+
+To see the assignment rather than read it: `python3 $S/overlay.py
+{style}-{event}` draws every band labelled with its copy key (`--vs-solution`
+puts the stored assignment beside the current one). After building,
+`python3 $S/audit.py {style}-{event}` reports, per line, where the render
+departs from the original's intent -- alignment edge, size, weight, case,
+ghosts of the original, damaged artwork. It never scores pixel agreement: the
+font is meant to differ.
+
 Read what it prints. It ends with either `no ambiguities; safe to build` or a
 `NEEDS A DECISION` list. **Those decisions are your job; the rest is not.**
 
-**`weak alignment` means do not ship.** It has been right every time: where the
-aligner reports a high mean cost, the built SVG has copy on the wrong lines,
-text colliding, or lines missing. Check the assignment with `measure.py` and
-fix it, or leave the poster outstanding. A poster with no SVG is better than a
+**`weak alignment` means do not ship**, and `convert.py` refuses to build it. It
+has been right every time: where the aligner reports a high mean cost, the
+built SVG has copy on the wrong lines, text colliding, or lines missing. Check
+the assignment with `overlay.py` and fix it, or leave the poster outstanding. A poster with no SVG is better than a
 poster with a wrong one -- `manifest.py` will keep showing it as work to do.
 
 **`ok` is not proof.** The aligner has reported `ok` with a list item set on a
@@ -405,9 +418,11 @@ that way, whereas bands that measure the same and are *set* differently mean
 the fitting did it, and that is worth opening the poster for. Silence is the
 normal outcome and costs nothing to read.
 
-`convert.py` prints a region diff automatically. The artwork region should be
-within a couple of units; a larger type-region difference is expected wherever
-you declined to copy a distortion — say so, with the number.
+Run `audit.py` on the poster. Every finding is a lead with the numbers
+behind it, not a verdict: a size or weight step may be the font winning, a
+type-like band left in the artwork may be the artwork's own lettering. A
+ghost (the original's ink still under a reset line) or damaged artwork is
+almost always real.
 
 Then load it in real Chrome and confirm:
 
@@ -486,6 +501,9 @@ about the poster made it impossible.
 | `flag_flawed.py` | mark a conversion known to be flawed: alert icon, hover for flaw and outlook (`--clear`, `--refresh`) |
 | `fetch_fonts.py` | fill the font cache (~260 faces) |
 | `build_index.py` | flatten variable fonts and index every face |
+| `overlay.py` | draw the band assignment on the poster (`--vs-solution` for stored vs current) |
+| `audit.py` | per-line check of a finished SVG against the original's intent |
+| `regress.py` | re-measure every solved poster; report changed assignments and the judged score |
 | `test_svgkit.py` | unit tests for the metric machinery |
 | `analyse.py`, `components.py`, `shapescore.py`, `svgkit.py` | libraries |
 

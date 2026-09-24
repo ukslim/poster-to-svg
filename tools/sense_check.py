@@ -59,9 +59,14 @@ def width(font, s, size):
     return total / upem * size
 
 
-def check(path):
+def check(path, soln=None, name=None):
+    """Print what looks odd; return how many things. `soln` and `name` default
+    to the site's stored solution for this file, for an SVG outside the site
+    (a work directory) pass them."""
     svg = strip_label(open(path).read())
-    name = os.path.basename(path)[:-4]
+    if soln and not name:
+        name = json.load(open(soln))['image'].rsplit('/', 1)[-1].rsplit('.', 1)[0]
+    name = name or os.path.basename(path)[:-4]
     found = []
 
     vb = re.search(r'viewBox="0 0 ([\d.]+) ([\d.]+)"', svg)
@@ -96,7 +101,7 @@ def check(path):
             pass
 
     # --- copy lines wrapped over several bands should be one size ---
-    soln = os.path.join(poster_site.solutions(), f'{name}.json')
+    soln = soln or os.path.join(poster_site.solutions(), f'{name}.json')
     if os.path.exists(soln):
         s = json.load(open(soln))
         L = s['lines']

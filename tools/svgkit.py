@@ -7,12 +7,17 @@ subset    cut a font down to the glyphs used and base64 it for @font-face
 probe     ask Chrome where each character actually lands (kerning included)
 render    headless Chrome screenshot of an SVG, and a regional diff
 """
-import base64, io, json, os, re, subprocess
+import base64, io, json, logging, os, re, subprocess
 import numpy as np
 from PIL import Image
 from fontTools.ttLib import TTFont, TTCollection
 from fontTools.subset import Subsetter, Options
 from fontTools.pens.boundsPen import BoundsPen
+
+# fontTools warns about harmless quirks in real fonts ("'created' timestamp
+# seems very low", "extra bytes in post.stringData") on every load. Nothing
+# acts on them, and a run printed dozens -- noise for whoever reads the log.
+logging.getLogger('fontTools').setLevel(logging.ERROR)
 
 CHROME = os.environ.get(
     'CHROME', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome')
