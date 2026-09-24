@@ -250,25 +250,25 @@ def split_text(text, bands, lines):
     return best
 
 
-def glyph_crops(group, lines, mask, limit=6):
+def glyph_crops(group, lines, arr, limit=10):
     """(char, ink crop) pairs from the ORIGINAL, for shape comparison.
 
-    Usable only where a band's components map one-to-one onto its characters;
-    where letters touch, the mapping is ambiguous and that band is skipped.
+    glyphs.segment aligns each band's ink runs to its characters, so a line
+    still yields crops when an i has a dot, a colon two parts or two letters
+    touch -- the old one-run-per-character rule discarded nearly every line.
+    Crops come from the line's own two-colour mask, so white type on a panel
+    is cut as cleanly as black on paper.
     """
+    from glyphs import segment
     crops = []
     for a in group:
         parts = a.get('parts') or split_text(a['text'], a['bands'], lines)
         if not parts:
             continue
         for bi, part in zip(a['bands'], parts):
-            b = lines[bi]
-            chars = [c for c in part if c != ' ']
-            if len(b['runs']) != len(chars):
-                continue
-            for ch, r in zip(chars, b['runs']):
-                if ch.isalnum() and (r[3] - r[2]) > 8:
-                    crops.append((ch, mask[r[2]:r[3] + 1, r[0]:r[1] + 1]))
+            for ch, crop in segment(arr, lines[bi], part):
+                if ch.isalnum() and crop.shape[0] > 8:
+                    crops.append((ch, crop))
     # Prefer the glyphs that separate families, but take whatever the poster
     # offers: insisting on a short list leaves lines with one usable glyph, and
     # one glyph cannot choose a typeface.
@@ -343,9 +343,16 @@ def classify(group, lines, best):
     return notes
 
 
-def confidence(cands):  # noqa
+def confidence(cands, n_glyphs=None):  # noqa
+    """How far the winner leads. Never better than 'low' when fewer than three
+    glyphs were compared by shape: the ranking is then width and stem alone,
+    which a comic face with the right proportions wins as easily as the right
+    face -- Bangers came top of nine posters that way, reported 'high'."""
     if len(cands) < 2:
         return 'low', 0.0
+    if n_glyphs is not None and n_glyphs < 3:
+        margin = cands[1]['score'] - cands[0]['score']
+        return 'low', round(margin / max(cands[0]['score'], 0.05), 3)
     margin = cands[1]['score'] - cands[0]['score']
     rel = margin / max(cands[0]['score'], 0.05)
     if cands[0]['score'] < 0.55 and rel > 0.25:
@@ -384,7 +391,6 @@ def solve(image, event, keep=24, wrap_cap_ratio=1.3, assign=None, **measure_opts
             x['upper'] = True
 
     a = np.array(Image.open(image).convert('RGB')).astype(int)
-    masks = ink_masks(a, modal_colour(a))
 
     groups, ambiguities = {}, []
 
@@ -421,10 +427,9 @@ def solve(image, event, keep=24, wrap_cap_ratio=1.3, assign=None, **measure_opts
 
     for kind, grp in group_lines_by_face(assigned, m['lines']).items():
         cands = stage1(grp, m['lines'], faces, keep)
-        colour = m['lines'][grp[0]['bands'][0]]['colour']
-        crops = glyph_crops(grp, m['lines'], masks.get(colour, masks['dark']))
+        crops = glyph_crops(grp, m['lines'], a)
         cands = stage2(cands, crops)
-        conf, margin = confidence(cands)
+        conf, margin = confidence(cands, len(crops))
         best = cands[0] if cands else None
         groups[kind] = dict(
             lines=[a2['key'] for a2 in grp],
@@ -471,7 +476,7 @@ def summarise(s):
     for kind, g in s['groups'].items():
         print(f"\n[{kind}]  {', '.join(g['lines'])}")
         print(f"  confidence {g['confidence']} (margin {g['margin']})"
-              f"   shape glyphs: {g['shape_glyphs'] or 'none usable'}")
+              f"   shape glyphs: {g['shape_glyphs'] or 'NONE -- ranked on width and stem only'}")
         for c in g['candidates'][:4]:
             print(f"    {c['family'][:28]:29} {c['sub'][:10]:11} w{c['weight']:<4}"
                   f" width {c['width_ratio']:.3f} spread {c['spread']:.3f}"
