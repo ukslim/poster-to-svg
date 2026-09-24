@@ -769,7 +769,8 @@ def artwork_svg(spec, sol, workdir, quality=76):
             from masks import strip_rules
             detached, _ = strip_rules(left, 120, 5)
             lab, n = ndimage.label(detached, np.ones((3, 3), bool))
-            excl = opts['exclude'] + [tuple(f['box']) for f in sol.get('frames') or []]
+            excl = (opts['exclude'] + [tuple(f['box']) for f in sol.get('frames') or []]
+                    + [tuple(a['box']) for a in sol.get('art') or []])
             swept = 0
             for i, sl in enumerate(ndimage.find_objects(lab), start=1):
                 ys, xs = sl
@@ -898,6 +899,7 @@ def build(sol, chosen, artwork, workdir, title=''):
      width="{w}" height="{h}" viewBox="0 0 {w} {h}" role="img"
      aria-label="{esc(title or 'Gig poster')}">
   <title>{esc(title or 'Poster')}</title>
+  <desc>{esc(' / '.join(c['text'] for c in sol.get('copy') or []))}</desc>
   <defs>
     <!-- Subset to the glyphs used; kerning retained, so the browser sets each
          line itself. No tracking is applied anywhere. -->

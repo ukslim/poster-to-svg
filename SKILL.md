@@ -20,18 +20,20 @@ measurement is wrong: fix it or record the poster as flawed.
 
 ## Converting a poster
 
-1. **Look once, and decide it can be converted.** View the poster. Take the
-   escape hatch when the lettering is drawn rather than set (hand-lettered,
-   painted, woodcut, sprayed, collaged, warped to a shape or into perspective;
-   type that is straight but on a slant converts, with `--tilted`), when it is part of a
-   photograph or painting, or when there is no font-like type:
+1. **Look once, and judge each line.** A line of copy that is lettering rather
+   than type -- hand-drawn, painted, brushed, 3D or chrome, multicoloured letter
+   by letter, collaged, warped to a shape, or sitting on a photograph or
+   painting -- stays as the original's pixels:
+   `--art headliner@X0,Y0,X1,Y1` (read the box off `overlay.py --grid`; keep it
+   clear of the lines around it). Its words still go in the SVG's `<desc>`.
+   Everything else is reset. Only when **no** line can be reset, take the
+   escape hatch:
    ```bash
    python3 $S/cannot_convert.py assets/poster-svg/{style}-{event}-v2.svg \
      --style "Punk Fanzine" --event gig --reason "What you saw, and what measured it."
    ```
-   Done when: you have either a poster to convert, or the escape hatch written.
-   A skip is a legitimate outcome; say "Tool limitation: ..." where a tool
-   change could rescue it.
+   Done when: every line is either to be reset or named in an `--art` box, or
+   the escape hatch is written.
 
 2. **Check the assignment.** `python3 $S/overlay.py {style}-{event}` numbers
    every band the solver found and labels it with its copy line (`#N?` = no
@@ -100,6 +102,7 @@ measurement is wrong: fix it or record the poster as flawed.
 | `--character KEY=BRIEF` | the face's character, as a gate on the ranking |
 | `--face GROUP\|KEY=#N\|"Family:weight"` | choose a face; a copy key gives that line its own face |
 | `--case KEY=upper\|mixed` | case where the test is fooled |
+| `--art KEYS@X0,Y0,X1,Y1` | lettering that cannot be reset stays the original's pixels; the box is artwork (an obstacle, never blanked). Pair with `--exclude` for detailed artwork elsewhere |
 | `--tilted KEYS@X0,Y0,X1,Y1@RISE` | copy set on a slant (a banner, a rotated panel): name the lines, a box round them, and the slope by eye in degrees rising to the right (`-8` falls); the exact angle is measured near it. Without RISE a bar or rays in the box can win. Warped or perspective type is still a skip |
 | `--knockout X0,Y0,X1,Y1` | a paper panel knocked out of a shape (reported as `possible_knockout`; right about 1 in 3, so look) |
 | `--artwork auto\|mask\|crop:..\|shapes:..\|none` | artwork treatment |
@@ -132,7 +135,7 @@ the generator imitated and is never shipped.
 | tool | does |
 |---|---|
 | `convert.py` | solve, build, check, publish one poster; writes `look.png` |
-| `overlay.py` | the band assignment drawn on the poster (`--vs-solution`, `--vs-baseline`) |
+| `overlay.py` | the band assignment drawn on the poster (`--grid` for coordinates; `--vs-solution`, `--vs-baseline`) |
 | `sheet.py` | contact sheet: the original line beside the shortlist |
 | `character.py` | `vocab`; `blocks` (every line cut out); `rank BRIEF` |
 | `audit.py` | a finished SVG checked line by line against the original's intent |
@@ -152,6 +155,7 @@ before it is kept:
 ```bash
 python3 $S/roundtrip.py --suite     # synthetic posters with known answers: the main gate
 python3 $S/roundtrip.py --suite --tilt   # the gig seeds with a slanted panel
+python3 $S/roundtrip.py --suite --art    # the gig seeds with an unresettable headline
 python3 $S/regress.py               # the 61 solved posters: what changed, judged score, pins
 python3 $S/test_measure.py && python3 $S/test_bands.py && python3 $S/test_svgkit.py
 ```

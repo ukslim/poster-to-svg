@@ -31,6 +31,8 @@ and every stage is graded against what was drawn:
   blank     under each line, the SVG's artwork layer matches the true artwork
             (drawn separately, without type): no ghost, no damage
   art       away from the type, the artwork layer is the artwork (per poster)
+  artkeep   (--art) lettering kept as art is untouched in the SVG
+  artdesc   (--art) its words are in the SVG's <desc>
   audit     audit.py's leads on the result: alignment, ghosts, damage
 
 It cannot imitate a generator's drifting letterforms, so passing here is
@@ -110,6 +112,47 @@ class Page:
         self.truth = {}
 
     tilt = False
+    art_lettering = False
+
+    def lettering(self, key, parts, rec, cap, base, x0, x1):
+        """Draw `parts` as lettering no font can reset -- each letter its own
+        colour, size and angle (orphism's headline) -- and record it as art:
+        its pixels must survive into the SVG untouched. -> next baseline."""
+        path = catalogue.face_file(rec)[0]
+        cols = [(230, 60, 50), (240, 150, 30), (60, 160, 70), (40, 120, 200), (130, 70, 170)]
+        # fit the widest line, allowing for the 15% size wobble
+        while cap > 30:
+            fnt = ImageFont.truetype(path, int(cap * 1.15 * rec['upem'] / rec['cap']))
+            if max(fnt.getlength(p) for p in parts) * 1.05 <= x1 - x0:
+                break
+            cap = int(cap * 0.9)
+        b = base
+        layer = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+        for part in parts:
+            x = x0
+            for ch in part:
+                c = int(cap * self.rng.uniform(0.85, 1.15))
+                fnt = ImageFont.truetype(path, max(8, int(c * rec['upem'] / rec['cap'])))
+                if ch != ' ':
+                    g = Image.new('RGBA', (int(c * 1.6), int(c * 1.6)), (0, 0, 0, 0))
+                    ImageDraw.Draw(g).text((c * 0.3, c * 1.3), ch, font=fnt,
+                                           fill=self.rng.choice(cols), anchor='ls')
+                    g = g.rotate(self.rng.uniform(-12, 12), resample=Image.BICUBIC)
+                    layer.alpha_composite(g, (int(x), max(0, int(b - c * 1.3))))
+                x += fnt.getlength(ch) * 1.02
+            b += int(cap * 1.3)
+        # the box is the lettering's actual ink, a little padded
+        x0_, y0_, x1_, y1_ = layer.getbbox()
+        box = [max(0, x0_ - 6), max(0, y0_ - 6), min(W - 1, x1_ + 6), min(H - 1, y1_ + 6)]
+        base_im = self.im.convert('RGBA')
+        base_im.alpha_composite(layer)
+        self.im = base_im.convert('RGB')
+        self.dr = ImageDraw.Draw(self.im)
+        self.art = Both(self.dr, ImageDraw.Draw(self.art_im))
+        self.art_box = (key, box)
+        self.art_text = ' '.join(parts)
+        # the next line starts clear of the lettering's lowest ink
+        return max(b, box[3] + int(0.5 * cap))
 
     def begin_layer(self):
         """Draw what follows on transparent layers (poster and artwork),
@@ -216,7 +259,10 @@ def draw_gig(rng, copy, d, t, it):
     words = head.split(' ')
     parts = [' '.join(words[:len(words) // 2]), ' '.join(words[len(words) // 2:])]
     cap = rng.randint(100, 150)
-    y = P.line('headliner', head, d, cap, 140 + cap, x0, x1, align, parts=parts)
+    if P.art_lettering:
+        y = P.lettering('headliner', parts, d, cap, 140 + cap, x0, x1)
+    else:
+        y = P.line('headliner', head, d, cap, 140 + cap, x0, x1, align, parts=parts)
     P.line('support', maybe_upper(rng, txt['support'], 0.25), t, 32, y + 10, x0, x1, align)
     # the date and venue reversed out of a panel -- on a slant, for a tilt run
     panel_col = rng.choice([(20, 110, 110), (170, 40, 40), (30, 50, 110)])
@@ -533,6 +579,28 @@ def brief_from_tags(rec):
     return ', '.join(f"{k.strip('/')} {int(v)}" for v, k in cls + exp) or 'Sans 50'
 
 
+def grade_art(card, notes, P, svg_path, workdir):
+    """artkeep: inside the art box the SVG's artwork layer IS the drawn
+    lettering (not blanked, not swept); artdesc: its words are in <desc>."""
+    import numpy as np
+    from audit import render, strip_text
+    key, (x0, y0, x1, y1) = P.art_box
+    svg = open(svg_path).read()
+    shipped = render(strip_text(svg), workdir, 'artkeep', W, H)[y0:y1, x0:x1]
+    drawn = np.array(P.im).astype(int)[y0:y1, x0:x1]
+    diff = float((np.abs(shipped - drawn).max(2) > 60).mean())
+    # 2%: the artwork layer is re-encoded as WebP, which moves the edges of
+    # saturated lettering; blanking or sweeping it changes far more
+    card['artkeep'] = [int(diff < 0.02), 1]
+    if diff >= 0.02:
+        notes.append(f'artkeep: {diff:.1%} of the art lettering changed')
+    desc = re.search(r'<desc>(.*?)</desc>', svg, re.S)
+    ok = bool(desc) and P.art_text.lower() in html.unescape(desc.group(1)).lower()
+    card['artdesc'] = [int(ok), 1]
+    if not ok:
+        notes.append('artdesc: the art lettering is not in <desc>')
+
+
 def one(job):
     seed, site, briefs, tiltrun = job
     import logging
@@ -543,12 +611,16 @@ def one(job):
     from copytext import load_copy
     copy = load_copy(event)
     d, t, it = pick_faces(rng)
-    Page.tilt = tiltrun and event == 'gig'
+    Page.tilt = tiltrun == 'tilt' and event == 'gig'
+    Page.art_lettering = tiltrun == 'art' and event == 'gig'
     P = (draw_gig if event == 'gig' else draw_fete)(rng, copy, d, t, it)
     style = f'synthetic_{seed}'
     degrade(P.im, rng).save(os.path.join(site, 'assets', 'poster-examples',
                                          f'{style}-{event}-v2.webp'))
     cmd = [sys.executable, os.path.join(HERE, 'convert.py'), style, event, '--fresh']
+    if getattr(P, 'art_box', None):
+        k, box = P.art_box
+        cmd += ['--art', f"{k}@{','.join(str(v) for v in box)}"]
     if getattr(P, 'tilted', None):
         keys, box = P.tilted
         cmd += ['--tilted', f"{','.join(keys)}@{','.join(str(v) for v in box)}"]
@@ -565,23 +637,26 @@ def one(job):
     if not os.path.exists(soln):
         return seed, head, None, [f'no solution: {(p.stdout + p.stderr)[-300:]}']
     if not os.path.exists(svg):
-        last = [l for l in (p.stdout + p.stderr).splitlines() if l.strip()][-1:] or ['']
+        last = [l for l in (p.stdout + p.stderr).splitlines()
+                if l.strip() and 'Warning' not in l and not l.startswith('  ')][-1:] or ['']
         return seed, head, None, [f'not built: {last[0][:160]}']
     sol = json.load(open(soln))
     with tempfile.TemporaryDirectory() as wd:
         card, notes = grade(sol, svg, P.truth, wd, (P.im, P.art_im))
+        if getattr(P, 'art_box', None):
+            grade_art(card, notes, P, svg, wd)
     return seed, head, card, notes
 
 
 def totals(results):
-    tot = {k: [0, 0] for k in ('assign', 'face', 'size', 'case', 'track', 'split', 'blank', 'art', 'tilt')}
+    tot = {k: [0, 0] for k in ('assign', 'face', 'size', 'case', 'track', 'split', 'blank', 'art', 'tilt', 'artkeep', 'artdesc')}
     tot['audit'] = {}
     built = 0
     for _, _, card, _ in results:
         if not card:
             continue
         built += 1
-        for k in ('assign', 'face', 'size', 'case', 'track', 'split', 'blank', 'art', 'tilt'):
+        for k in ('assign', 'face', 'size', 'case', 'track', 'split', 'blank', 'art', 'tilt', 'artkeep', 'artdesc'):
             if k not in card:
                 continue
             tot[k][0] += card[k][0]
@@ -594,8 +669,8 @@ def totals(results):
 
 def show(tot):
     parts = [f"built {tot['built'][0]}/{tot['built'][1]}"]
-    parts += [f'{k} {tot[k][0]}/{tot[k][1]}' for k in ('assign', 'face', 'size', 'case', 'track', 'split', 'blank', 'art', 'tilt')
-              if k in tot and (k != 'tilt' or tot[k][1])]
+    parts += [f'{k} {tot[k][0]}/{tot[k][1]}' for k in ('assign', 'face', 'size', 'case', 'track', 'split', 'blank', 'art', 'tilt', 'artkeep', 'artdesc')
+              if k in tot and (k not in ('tilt', 'artkeep', 'artdesc') or tot[k][1])]
     au = ', '.join(f'{k} {v}' for k, v in tot['audit'].items() if v) or 'none'
     return '  '.join(parts) + f'   audit leads: {au}'
 
@@ -612,6 +687,8 @@ def main():
                     help="give convert.py character briefs from the drawn faces' tags")
     ap.add_argument('--tilt', action='store_true',
                     help='gig posters set their date and venue panel on a slant')
+    ap.add_argument('--art', action='store_true',
+                    help="gig posters draw their headline as lettering no font can reset")
     ap.add_argument('--keep', action='store_true', help='keep the throwaway site')
     ap.add_argument('-j', type=int, default=4)
     a = ap.parse_args()
@@ -622,10 +699,11 @@ def main():
     os.symlink(os.path.join(real, '_data'), os.path.join(site, '_data'))
     os.symlink(os.path.join(real, '_includes'), os.path.join(site, '_includes'))
     seeds = (a.seeds or SUITE) if (a.suite or a.seeds) else [a.seed * 1000 + i for i in range(a.n)]
-    if a.tilt and a.suite and not a.seeds:
+    if (a.tilt or a.art) and a.suite and not a.seeds:
         seeds = [s for s in SUITE if s % 2 == 0]
     with Pool(a.j) as pool:
-        results = sorted(pool.map(one, [(s, site, a.briefs, a.tilt) for s in seeds]))
+        mode = 'tilt' if a.tilt else 'art' if a.art else None
+        results = sorted(pool.map(one, [(s, site, a.briefs, mode) for s in seeds]))
     for seed, head, card, notes in results:
         print(head + ('' if card else '  FAILED'))
         for n in notes:
@@ -633,7 +711,7 @@ def main():
     tot = totals(results)
     print('\n' + show(tot))
     if a.suite:
-        key = ('briefs' if a.briefs else 'plain') + ('+tilt' if a.tilt else '')
+        key = ('briefs' if a.briefs else 'plain') + ('+tilt' if a.tilt else '') + ('+art' if a.art else '')
         base = json.load(open(BASELINE)) if os.path.exists(BASELINE) else {}
         if a.save_baseline:
             base[key] = tot

@@ -519,6 +519,17 @@ def confidence(cands, n_glyphs=None):  # noqa
 
 
 # ------------------------------------------------------------------- main
+def parse_art(spec):
+    """'headliner,support@X0,Y0,X1,Y1' -> (keys, box)."""
+    keys, _, box = spec.partition('@')
+    try:
+        box = tuple(int(v) for v in box.split(','))
+        assert len(box) == 4
+    except (ValueError, AssertionError):
+        raise SystemExit(f'--art {spec!r}: expected KEYS@X0,Y0,X1,Y1')
+    return [k.strip() for k in keys.split(',') if k.strip()], box
+
+
 def parse_tilt(spec):
     from tilt import parse
     return parse(spec)
@@ -609,10 +620,20 @@ def briefs_for(kind, grp, character):
 
 
 def solve(image, event, keep=SHAPE_POOL, wrap_cap_ratio=1.3, assign=None,
-          character=None, case=None, tilted=None, **measure_opts):
+          character=None, case=None, tilted=None, art=None, **measure_opts):
     copy = load_copy(event)
     specs = [parse_tilt(t) for t in (tilted or [])]
     tilted_keys = {k for keys, _, _ in specs for k in keys}
+    # Lettering that cannot be reset -- drawn, painted, multicoloured, 3D, on
+    # a photograph -- stays the original's pixels: its copy lines are not
+    # looked for, and its box is artwork (excluded from type detection, so an
+    # obstacle for layout; never blanked or swept).
+    arts = [parse_art(a) for a in (art or [])]
+    art_keys = {k for keys, _ in arts for k in keys}
+    measure_opts = dict(measure_opts)
+    measure_opts['exclude'] = list(measure_opts.get('exclude') or []) + [box for _, box in arts]
+    copy_all = copy
+    copy = [c for c in copy if c['key'] not in art_keys]
     m = find_lines(image, **measure_opts)
     frames, tilted_found = [], []
     for keys, box, angle in specs:
@@ -783,6 +804,8 @@ def solve(image, event, keep=SHAPE_POOL, wrap_cap_ratio=1.3, assign=None,
 
     return dict(image=image, event=event, size=m['size'], paper=m['paper'],
                 assign_points=assign_points, frames=frames,
+                art=[dict(keys=k, box=list(b)) for k, b in arts],
+                copy=[dict(key=c['key'], text=c['text']) for c in copy_all],
                 median_texture=round(med_tex, 2),
                 alignment=note, alignment_cost=round(cost, 3),
                 lines=m['lines'],   # keeps per-glyph boxes: the builder blanks

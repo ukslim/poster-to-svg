@@ -30,7 +30,7 @@ def _font(size):
     return ImageFont.load_default()
 
 
-def panel(image_path, lines, assigned, width=380, title='', missing=()):
+def panel(image_path, lines, assigned, width=380, title='', missing=(), art=(), grid=False):
     """One annotated, downscaled poster. `missing` names copy lines that got no
     band -- the one failure a box cannot show, because there is nothing to box."""
     im = Image.open(image_path).convert('RGB')
@@ -72,6 +72,25 @@ def panel(image_path, lines, assigned, width=380, title='', missing=()):
         box = [ln['left'] * s, ln['y0'] * s, ln['right'] * s, ln['y1'] * s]
         d.rectangle(box, fill=(0, 0, 0, 70), outline=(0, 0, 0, 200), width=1)
         d.text((box[0] + 1, box[1]), f'#{b}?', fill='black', font=f)
+    for a in art or ():
+        # lettering kept as the original's pixels: hatched, labelled
+        x0, y0, x1, y1 = [v * s for v in a['box']]
+        d.rectangle([x0, y0, x1, y1], outline=(120, 0, 160, 255), width=2)
+        for k in range(int(x0) - int(y1 - y0), int(x1), 10):
+            d.line([max(x0, k), y0 + max(0, x0 - k), min(x1, k + (y1 - y0)),
+                    y0 + min(y1 - y0, x1 - k)], fill=(120, 0, 160, 90))
+        d.text((x0 + 2, y0 + 1), 'art: ' + ','.join(a['keys']), fill=(120, 0, 160, 255), font=f)
+    if grid:
+        # every 100px of the poster, labelled in poster pixels
+        W0, H0 = im.width / s, im.height / s
+        for v in range(100, int(max(W0, H0)), 100):
+            col = (0, 150, 255, 110) if v % 500 else (0, 90, 220, 200)
+            if v < W0:
+                d.line([v * s, 0, v * s, im.height], fill=col)
+                d.text((v * s + 1, im.height - 12), str(v), fill=(0, 90, 220, 255), font=f)
+            if v < H0:
+                d.line([0, v * s, im.width, v * s], fill=col)
+                d.text((1, v * s + 1), str(v), fill=(0, 90, 220, 255), font=f)
     if title:
         d.rectangle([0, 0, width, 14], fill='white')
         d.text((2, 1), title, fill='black', font=f)
@@ -143,6 +162,8 @@ def main():
                     help='stored assignment beside the current one')
     ap.add_argument('--vs-baseline', action='store_true',
                     help='the regress.py baseline beside the current one')
+    ap.add_argument('--grid', action='store_true',
+                    help='coordinate lines every 100px, to read --art/--exclude boxes off')
     ap.add_argument('--width', type=int, default=380)
     ap.add_argument('-o', '--out', default=None)
     a = ap.parse_args()
@@ -155,7 +176,10 @@ def main():
                 src, L, A, t = fn(name)
                 panels.append(panel(src, L, A, a.width, f'{short}  {t}', missing_keys(name, A)))
         src, L, A, t = current(name)
-        panels.append(panel(src, L, A, a.width, f'{short}  {t}', missing_keys(name, A)))
+        soln = os.path.join(poster_site.solutions(), name + '.json')
+        art = json.load(open(soln)).get('art') if os.path.exists(soln) else None
+        panels.append(panel(src, L, A, a.width, f'{short}  {t}', missing_keys(name, A),
+                            art=art, grid=a.grid))
     w = sum(p.width for p in panels) + 6 * (len(panels) - 1)
     sheet = Image.new('RGB', (w, max(p.height for p in panels)), 'white')
     x = 0

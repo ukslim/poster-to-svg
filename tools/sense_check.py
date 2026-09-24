@@ -88,7 +88,13 @@ def check(path, soln=None, name=None):
             sys.path.insert(0, HERE)
             from measure import load_copy
             got = ' '.join(t['text'] for t in T).upper()
+            soln_ = soln or os.path.join(poster_site.solutions(), f'{name}.json')
+            art_keys = set()
+            if os.path.exists(soln_):
+                art_keys = {k for a in json.load(open(soln_)).get('art') or [] for k in a['keys']}
             for c in load_copy(ev):
+                if c['key'] in art_keys:
+                    continue      # kept as the original's lettering, on purpose
                 words = [w for w in re.findall(r"[A-Za-z0-9']{3,}", c['text'])][:3]
                 if words and not all(w.upper() in got for w in words):
                     found.append(

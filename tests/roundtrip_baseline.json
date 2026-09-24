@@ -134,5 +134,61 @@
    6,
    6
   ]
+ },
+ "plain+art": {
+  "assign": [
+   38,
+   42
+  ],
+  "face": [
+   38,
+   42
+  ],
+  "size": [
+   23,
+   23
+  ],
+  "case": [
+   41,
+   41
+  ],
+  "track": [
+   41,
+   41
+  ],
+  "split": [
+   2,
+   3
+  ],
+  "blank": [
+   42,
+   42
+  ],
+  "art": [
+   6,
+   6
+  ],
+  "tilt": [
+   0,
+   0
+  ],
+  "artkeep": [
+   6,
+   6
+  ],
+  "artdesc": [
+   6,
+   6
+  ],
+  "audit": {
+   "alignment": 0,
+   "ghost": 0,
+   "damage": 0,
+   "leftover type": 2
+  },
+  "built": [
+   6,
+   6
+  ]
  }
 }
