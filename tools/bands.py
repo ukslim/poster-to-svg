@@ -347,6 +347,47 @@ def find_lines(img_path, min_glyphs=2, solid_radius=24,
                     note_art(colour, mask, c, why)
             else:
                 glyphs.append(c)
+        # A short rule -- under the length strip_rules looks for -- is still
+        # no glyph: no letter is that thin and several times the height of its
+        # neighbours. Left in, a rule between two list columns overlaps two
+        # rows and fills the gutter, and glues four items into one band (the
+        # round trip's two-column lists). It stays artwork.
+        if glyphs:
+            hs = sorted(c['box'][3] - c['box'][1] + 1 for c in glyphs)
+            med_h = hs[len(hs) // 2]
+            keep = []
+
+            def flanked(c, bh):
+                # A column rule stands in a gutter: smaller type on BOTH sides
+                # of it, within its height. A headline letter's neighbours are
+                # its own height; a mark at the page edge has nothing beside it.
+                def side(sign):
+                    return sum(1 for o in glyphs if o is not c
+                               and (o['box'][3] - o['box'][1] + 1) < 0.6 * bh
+                               and c['box'][1] <= (o['box'][1] + o['box'][3]) / 2 <= c['box'][3]
+                               and sign * ((o['box'][0] + o['box'][2]) / 2
+                                           - (c['box'][0] + c['box'][2]) / 2) > 0)
+                return side(-1) >= 2 and side(1) >= 2
+
+            def on_paper(c):
+                # ...and it is drawn ON the paper: just either side of it is
+                # paper. The black gap between two reversed-out letters is
+                # thin and tall too, but it has letters beside it, not paper;
+                # a mark at the page's edge has nothing on one side at all.
+                x0, y0, x1, y1 = c['box']
+                if x0 < 4 or x1 > w - 5:
+                    return False
+                cols = np.concatenate([a[y0:y1 + 1, x0 - 3], a[y0:y1 + 1, x1 + 3]])
+                return float((np.abs(cols - np.array(paper)).max(1) < 40).mean()) > 0.6
+            for c in glyphs:
+                bw = c['box'][2] - c['box'][0] + 1
+                bh = c['box'][3] - c['box'][1] + 1
+                if bh > 2.5 * med_h and bw < 0.12 * bh and flanked(c, bh) and on_paper(c):
+                    if c['area'] > 100:
+                        note_art(colour, mask, c, 'rule')
+                else:
+                    keep.append(c)
+            glyphs = keep
         if not glyphs:
             continue
         for grp in group_lines(glyphs):
