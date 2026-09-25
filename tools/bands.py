@@ -6,7 +6,7 @@ from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from analyse import line_metrics, modal_colour, tracking  # noqa: E402
-from components import label, is_artwork, group_lines  # noqa: E402
+from components import label, is_artwork, in_a_word, group_lines  # noqa: E402
 from masks import ink_masks, strip_solids, strip_rules  # noqa: E402
 from linemask import line_mask  # noqa: E402
 
@@ -335,6 +335,8 @@ def find_lines(img_path, min_glyphs=2, solid_radius=24,
         glyphs = []
         for c in comps:
             art, why = is_artwork(c, w, h)
+            if art and why.startswith('large and solid') and in_a_word(c, comps, w, h):
+                art, why = False, ''
             # An excluded box means "do not look for type here", not "nothing
             # is here": what it holds is artwork, and must stay artwork. Zeroing
             # the mask instead would also erase it from the artwork list, and

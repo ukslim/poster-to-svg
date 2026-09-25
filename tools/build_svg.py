@@ -348,6 +348,10 @@ def keep_leading(sized, face, key):
     for (b1, p1, s1, _), (b2, p2, s2, _) in zip(sized, sized[1:]):
         if b1.get('frame') or b2.get('frame') or b2['baseline'] <= b1['baseline']:
             continue
+        # side by side on one row (a title's last word in the accent colour),
+        # not one row above another: there is no leading between them
+        if b2['y0'] < b1['baseline'] - 0.5 * b1['cap']:
+            continue
         # letters only: band-finding leaves punctuation out of a band's depth
         low = [face.bounds(c)[1] for c in p1 if c.isalnum() and face.has(c)]
         desc = max(0.0, -min(low) / face.upem) if low else 0.0

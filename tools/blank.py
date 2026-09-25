@@ -91,7 +91,14 @@ def text_ink_mask(img_path, lines=None, **opts):
             sl = (slice(y0, y1), slice(ln['left'], ln['right'] + 1))
             ground = a[sl][~near[sl]]
             if len(ground) and np.abs(np.median(ground, 0) - lnrgb).max() > 60:
-                here[sl] |= near[sl]
+                # ...but only ink joined to the line's own letters: the box
+                # reaches below the band, and a mark of the same colour under
+                # a big title (factory_records' "BW 06-09" and its rule, in
+                # the title's green) is not part of it.
+                nl, k = ndimage.label(near[sl], np.ones((3, 3), bool))
+                if k:
+                    keep = np.unique(nl[here[sl] & (nl > 0)])
+                    here[sl] |= np.isin(nl, keep[keep > 0])
             # A line's closing full stop is the one piece of punctuation that
             # is never inside its box: it is too small to be kept as a glyph,
             # so the box ends at the last letter and the stop sits just past

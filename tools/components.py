@@ -42,6 +42,40 @@ def is_artwork(c, page_w, page_h):
     return False, ''
 
 
+def in_a_word(c, comps, page_w, page_h, density_max=0.90):
+    """A solid shape that is really a letter of very heavy display type.
+
+    A black condensed O, D or B is 80-88% ink, as dense as a panel. What gives
+    it away is company: it has a letter's proportions (taller than wide) and
+    stands in a row of at least two other shapes of the same height, sharing
+    its top and bottom, each within a letter's width of the next. A shape --
+    a bar, a panel, a sun -- almost never has two same-height twins in line.
+    (monochrome_single_accent's green FLOOD, with --solid-radius raised so
+    the letters survive erosion at all.)
+    """
+    x0, y0, x1, y1 = c['box']
+    bw, bh = x1 - x0 + 1, y1 - y0 + 1
+    if c['area'] / max(1, bw * bh) > density_max or not 1.1 <= bh / bw <= 5:
+        return False
+    if bh > 0.30 * page_h:
+        return False
+    twins, solid = 0, 0
+    for o in comps:
+        if o is c:
+            continue
+        a0, b0, a1, b1 = o['box']
+        oh, ow = b1 - b0 + 1, a1 - a0 + 1
+        if (abs(oh - bh) <= 0.08 * bh and abs(b0 - y0) <= 0.08 * bh
+                and abs(b1 - y1) <= 0.08 * bh and ow <= 1.5 * bw
+                and min(abs(a0 - x1), abs(x0 - a1)) <= 1.5 * bw):
+            twins += 1
+            solid += o['area'] / max(1, ow * oh) > 0.75
+    # ...and one of them as solid as it is: letters of one weight are all
+    # dense together. A solid shape beside ordinary type (risograph's
+    # microphone head, level with CARVER) has twins, but none solid.
+    return twins >= 2 and solid >= 1
+
+
 def group_lines(comps, overlap=0.40, gutter=1.5):
     """Cluster glyph components into lines by vertical overlap.
 
