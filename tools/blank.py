@@ -101,7 +101,10 @@ def text_ink_mask(img_path, lines=None, **opts):
                 if k:
                     keep = set(np.unique(nl[here[sl] & (nl > 0)]).tolist())
                     for i, (ys, xs) in enumerate(ndimage.find_objects(nl), start=1):
-                        if y0 + ys.stop <= ln['y1'] + 1:
+                        # small, and clear of the box's top edge: an accent,
+                        # not the foot of a shape above (wpa's stage floor)
+                        if (y0 + ys.stop <= ln['y1'] + 1 and ys.start > 0
+                                and xs.stop - xs.start < ln['cap']):
                             keep.add(i)
                     keep.discard(0)
                     here[sl] |= np.isin(nl, list(keep))
