@@ -25,7 +25,7 @@ import meta  # noqa: E402
 
 # Carried from the SVG's metadata record into its manifest row.
 META = ('faults', 'fault_verdict', 'fault_outlook', 'text_as_bitmap', 'not_reset',
-        'tilted', 'artwork', 'raster_bytes', 'tool', 'built')
+        'tilted', 'artwork', 'raster_bytes', 'version', 'built')
 
 
 def scan():
@@ -99,7 +99,8 @@ def site_data(rows):
                             for a in r.get('text_as_bitmap') or []],
             not_reset=[u['text'] for u in r.get('not_reset') or []],
             tilted=[abs(a['angle']) for a in r.get('tilted') or []],
-            vector=r.get('raster_bytes') == 0)
+            vector=r.get('raster_bytes') == 0,
+            version=r.get('version'), built=r.get('built'))
     return out
 
 

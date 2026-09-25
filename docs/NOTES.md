@@ -551,8 +551,9 @@ to the mark's design.
 Every SVG carries a `<metadata id="p2svg-meta">` block: a JSON record of its
 status, faults (the flawed mark's sentences), the lettering kept as bitmap and
 why, copy lines left unset, tilted lines, the faces that ship and what each
-sets, the artwork treatment, bytes of embedded bitmap, and the tool commit and
-date of the build. `manifest.py --json` copies it into each row, and
+sets, the artwork treatment, bytes of embedded bitmap, the version that built
+it (commit, commit date, and tag `dirty` for uncommitted changes) and the
+build date; `meta.py --stale` lists SVGs the current version did not build. `manifest.py --json` copies it into each row, and
 `manifest.py --site-data` writes the part the site's index page shows to
 `_data/poster_svg.json`. It is derived from the SVG and its solution, never typed
 in -- except `why`, the reason given with `--art` -- and every tool that

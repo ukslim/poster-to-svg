@@ -143,7 +143,7 @@ the generator imitated and is never shipped.
 | `audit.py` | a finished SVG checked line by line against the original's intent |
 | `check_svg.py` | font-substitution check (run by convert) |
 | `manifest.py` | status of all 200 (`--todo`, `--flawed`); `--json` carries each SVG's metadata record; `--site-data` writes the site's `_data/poster_svg.json` for its index page (run after converting) |
-| `meta.py` | the metadata record every SVG carries (faults, text kept as bitmap and why, unset lines, faces): print, or `--refresh` |
+| `meta.py` | the metadata record every SVG carries (faults, text kept as bitmap and why, unset lines, faces, version): print, `--refresh`, or `--stale` to list SVGs this version did not build |
 | `cannot_convert.py`, `flag_flawed.py` | the escape hatch; the flawed mark |
 | `measure.py` | band measurement as text, no rendering |
 | `catalogue.py` | the Google Fonts catalogue: `build` (once, ~5 min), `show FAMILY` |
