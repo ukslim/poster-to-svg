@@ -95,10 +95,16 @@ def text_ink_mask(img_path, lines=None, **opts):
                 # reaches below the band, and a mark of the same colour under
                 # a big title (factory_records' "BW 06-09" and its rule, in
                 # the title's green) is not part of it.
+                # Marks within the band's own rows stay in: an accent is its
+                # own speck, joined to nothing, above the letter it marks.
                 nl, k = ndimage.label(near[sl], np.ones((3, 3), bool))
                 if k:
-                    keep = np.unique(nl[here[sl] & (nl > 0)])
-                    here[sl] |= np.isin(nl, keep[keep > 0])
+                    keep = set(np.unique(nl[here[sl] & (nl > 0)]).tolist())
+                    for i, (ys, xs) in enumerate(ndimage.find_objects(nl), start=1):
+                        if y0 + ys.stop <= ln['y1'] + 1:
+                            keep.add(i)
+                    keep.discard(0)
+                    here[sl] |= np.isin(nl, list(keep))
             # A line's closing full stop is the one piece of punctuation that
             # is never inside its box: it is too small to be kept as a glyph,
             # so the box ends at the last letter and the stop sits just past
