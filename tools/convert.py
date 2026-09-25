@@ -121,9 +121,10 @@ def main():
     ap.add_argument('--tilted', action='append', default=[], metavar='KEYS@X0,Y0,X1,Y1[@ANGLE]',
                     help='copy lines set on a slant, the box they sit in, and the slope by eye '
                          '(degrees rising to the right): date,venue@120,900,980,1200@8')
-    ap.add_argument('--art', action='append', default=[], metavar='KEYS@X0,Y0,X1,Y1',
+    ap.add_argument('--art', action='append', default=[], metavar='KEYS@X0,Y0,X1,Y1[@WHY]',
                     help='lettering that cannot be reset (drawn, painted, 3D, on a photo): '
-                         'those copy lines stay the original pixels, e.g. headliner@0,80,1024,560')
+                         'those copy lines stay the original pixels, and WHY says what makes '
+                         'it so, e.g. "headliner@0,80,1024,560@hand-painted brush lettering"')
     ap.add_argument('--keep', type=int, default=80)
     ap.add_argument('--fresh', action='store_true',
                     help='ignore the knobs stored with an earlier solution')
@@ -180,6 +181,11 @@ def main():
     from build_svg import build_file
     build_file(s, out, k['face'], k['artwork'], work,
                title=f'{a.style.replace("_", " ")} {a.event} poster')
+    # What is known about the conversion goes into the SVG itself (meta.py),
+    # for the manifest and the site's index page.
+    import meta
+    svg = meta.stamp(open(out).read(), s)
+    open(out, 'w').write(svg)
 
     from svgkit import render_svg
     render_svg(out, os.path.join(work, 'render.png'), *s['size'], workdir=work)

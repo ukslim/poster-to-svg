@@ -21,11 +21,15 @@ only the icon appears, which is still an unmistakable flag.
 
 Everything is recorded in the file's own attributes (data-flaw, data-outlook,
 data-verdict), so `manifest.py --flawed` lists them without a second record
-that could drift. The block is delimited and painted last; the checkers strip
-it before reading the poster (`strip_label`), because its text is set in a
-system font on purpose and is not part of the conversion.
+that could drift; the SVG's metadata block (meta.py) is re-derived from them
+whenever the mark changes. The block is delimited and painted last; the
+checkers strip it before reading the poster (`strip_label`), because its text
+is set in a system font on purpose and is not part of the conversion.
 """
-import argparse, html, re, textwrap
+import argparse, html, os, re, sys, textwrap
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import meta  # noqa: E402
 
 START, END = '<!-- flawed-label -->', '<!-- /flawed-label -->'
 TEXT = 'I know this conversion is flawed'
@@ -139,12 +143,12 @@ def main():
             if reason(s) is None:
                 continue
             verdict, note = outlook(s)
-            open(p, 'w', encoding='utf-8').write(
-                label(s, reason(s), note or '', verdict or 'fixable'))
+            s = label(s, reason(s), note or '', verdict or 'fixable')
+            open(p, 'w', encoding='utf-8').write(meta.refresh(s, meta.solution_for(p)))
             print(f'{p}: mark redrawn')
             continue
         s = strip_label(s) if a.clear else label(s, a.flaw, a.outlook, a.verdict)
-        open(p, 'w', encoding='utf-8').write(s)
+        open(p, 'w', encoding='utf-8').write(meta.refresh(s, meta.solution_for(p)))
         print(f"{p}: {'mark cleared' if a.clear else 'marked flawed'}")
 
 

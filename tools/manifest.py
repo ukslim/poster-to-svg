@@ -8,8 +8,12 @@
 A converted SVG with no solution beside it is 'hand-built': it came from an
 exploratory session, not from the tool.
     python3 manifest.py --json     # write manifest.json
+    python3 manifest.py --site-data   # write the site's _data/poster_svg.json
 
-Derived by scanning the directories, so it cannot drift from reality.
+Derived by scanning the directories, so it cannot drift from reality. Each
+row carries the SVG's own metadata record (meta.py): faults, text kept as
+bitmap and why, lines not reset, tilted lines, faces, artwork -- the fields
+the site's index page shows beside each poster.
 """
 import argparse, glob, json, os, re, sys
 
@@ -17,6 +21,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import sitepaths as poster_site  # noqa: E402
 from flag_flawed import reason as flawed_reason, outlook as flawed_outlook  # noqa: E402
+import meta  # noqa: E402
+
+# Carried from the SVG's metadata record into its manifest row.
+META = ('faults', 'fault_verdict', 'fault_outlook', 'text_as_bitmap', 'not_reset',
+        'tilted', 'artwork', 'raster_bytes', 'tool', 'built')
 
 
 def scan():
@@ -49,6 +58,13 @@ def scan():
                 if why is not None:
                     row['verdict'], row['outlook'] = flawed_outlook(text)
                 row['faces'] = sorted(set(re.findall(r'font-family:\s*"([^"]+)"', text)))
+            rec = meta.read(text)
+            if rec:
+                row.update({k: rec.get(k) for k in META})
+                if rec.get('faces'):
+                    row['faces'] = [f['family'] for f in rec['faces']]
+                    row['face_records'] = [{k: f[k] for k in ('family', 'style', 'weight')}
+                                           for f in rec['faces']]
         soln = os.path.join(poster_site.solutions(), base + '.json')
         if os.path.exists(soln):
             try:
@@ -63,13 +79,52 @@ def scan():
     return rows
 
 
+def site_data(rows):
+    """{style-event-v2: entry} for the site's index page (poster-prompts/
+    svg.html): the parts of each row a reader of the page wants, flattened
+    so the Liquid template only has to print them."""
+    out = {}
+    for r in rows:
+        faces = []
+        for f in r.get('face_records') or []:
+            style = f.get('style')
+            faces.append(f['family'] + ('' if style in (None, 'Regular', '400') else f' {style}'))
+        out[f"{r['style']}-{r['event']}-v2"] = dict(
+            status=r['status'],
+            faults=r.get('faults', r['reason'] if r['status'] == 'flawed' else None),
+            fault_outlook=r.get('fault_outlook', r.get('outlook')),
+            skip_reason=r['reason'] if r['status'] == 'skipped' else None,
+            faces=faces or r['faces'],
+            text_as_bitmap=[dict(text=a['text'], why=a.get('why'))
+                            for a in r.get('text_as_bitmap') or []],
+            not_reset=[u['text'] for u in r.get('not_reset') or []],
+            tilted=[abs(a['angle']) for a in r.get('tilted') or []],
+            vector=r.get('raster_bytes') == 0)
+    return out
+
+
+def notes(r):
+    """What the metadata says is kept as pixels or left unset, in brief."""
+    art = [k for a in r.get('text_as_bitmap') or [] for k in a['lines']]
+    unset = [u['line'] for u in r.get('not_reset') or []]
+    return (f"  art: {','.join(art)}" if art else '') + (f"  unset: {','.join(unset)}" if unset else '')
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--todo', action='store_true')
     ap.add_argument('--json', action='store_true')
     ap.add_argument('--flawed', action='store_true')
+    ap.add_argument('--site-data', action='store_true',
+                    help="write _data/poster_svg.json, which the site's SVG index page reads")
     a = ap.parse_args()
     rows = scan()
+
+    if a.site_data:
+        out = os.path.join(poster_site.root(), '_data', 'poster_svg.json')
+        json.dump(site_data(rows), open(out, 'w'), indent=1, sort_keys=True)
+        print(f'-> {out}')
+        return
 
     if a.json:
         out = os.path.join(poster_site.svgs(), 'manifest.json')
@@ -99,12 +154,12 @@ def main():
         print('\ndone:')
         for r in done:
             print(f"  {r['style']:34} {r['event']:5} {r['bytes']/1024:6.0f}KB  "
-                  f"{', '.join(r['faces'][:3])}")
+                  f"{', '.join(r['faces'][:3])}{notes(r)}")
     if hand:
         print('\nhand-built (no solution; the tool has never converted these):')
         for r in hand:
             print(f"  {r['style']:34} {r['event']:5} {r['bytes']/1024:6.0f}KB  "
-                  f"{', '.join(r['faces'][:3])}")
+                  f"{', '.join(r['faces'][:3])}{notes(r)}")
     if flawed:
         print('\nflawed (labelled; candidates for fixing):')
         for r in flawed:

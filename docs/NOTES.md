@@ -546,6 +546,20 @@ the fix falls short, mark it again. `flag_flawed.py --clear` removes a mark by
 hand, and `--refresh` redraws every mark from its stored text after a change
 to the mark's design.
 
+### The metadata record
+
+Every SVG carries a `<metadata id="p2svg-meta">` block: a JSON record of its
+status, faults (the flawed mark's sentences), the lettering kept as bitmap and
+why, copy lines left unset, tilted lines, the faces that ship and what each
+sets, the artwork treatment, bytes of embedded bitmap, and the tool commit and
+date of the build. `manifest.py --json` copies it into each row, and
+`manifest.py --site-data` writes the part the site's index page shows to
+`_data/poster_svg.json`. It is derived from the SVG and its solution, never typed
+in -- except `why`, the reason given with `--art` -- and every tool that
+changes an SVG rewrites it (`convert.py`, `flag_flawed.py`,
+`cannot_convert.py`). After changing what it records, rewrite them all with
+`meta.py assets/poster-svg/*.svg --refresh`, which keeps each build stamp.
+
 ## Report
 
 The face(s) and the evidence that chose them; artwork treatment and size;
@@ -568,6 +582,7 @@ about the poster made it impossible.
 | `manifest.py` | status across all 200 |
 | `cannot_convert.py` | the escape hatch |
 | `flag_flawed.py` | mark a conversion known to be flawed: alert icon, hover for flaw and outlook (`--clear`, `--refresh`) |
+| `meta.py` | the metadata record in each SVG: print it, or `--refresh` it |
 | `catalogue.py` | describe every Google Fonts style (metrics, features, tags); `build`, `show` |
 | `fontfetch.py` | fetch a style as a subset of the characters needed, cached |
 | `character.py` | the character vocabulary, cut-out line blocks, brief scoring |

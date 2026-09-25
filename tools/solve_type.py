@@ -526,14 +526,17 @@ def confidence(cands, n_glyphs=None):  # noqa
 
 # ------------------------------------------------------------------- main
 def parse_art(spec):
-    """'headliner,support@X0,Y0,X1,Y1' -> (keys, box)."""
-    keys, _, box = spec.partition('@')
+    """'headliner,support@X0,Y0,X1,Y1[@WHY]' -> (keys, box, why or None).
+    WHY is what makes the lettering unresettable, in a few words; it goes
+    into the SVG's metadata."""
+    keys, _, rest = spec.partition('@')
+    box, _, why = rest.partition('@')
     try:
         box = tuple(int(v) for v in box.split(','))
         assert len(box) == 4
     except (ValueError, AssertionError):
-        raise SystemExit(f'--art {spec!r}: expected KEYS@X0,Y0,X1,Y1')
-    return [k.strip() for k in keys.split(',') if k.strip()], box
+        raise SystemExit(f'--art {spec!r}: expected KEYS@X0,Y0,X1,Y1[@WHY]')
+    return [k.strip() for k in keys.split(',') if k.strip()], box, why.strip() or None
 
 
 def parse_tilt(spec):
@@ -635,9 +638,9 @@ def solve(image, event, keep=SHAPE_POOL, wrap_cap_ratio=1.3, assign=None,
     # looked for, and its box is artwork (excluded from type detection, so an
     # obstacle for layout; never blanked or swept).
     arts = [parse_art(a) for a in (art or [])]
-    art_keys = {k for keys, _ in arts for k in keys}
+    art_keys = {k for keys, _, _ in arts for k in keys}
     measure_opts = dict(measure_opts)
-    measure_opts['exclude'] = list(measure_opts.get('exclude') or []) + [box for _, box in arts]
+    measure_opts['exclude'] = list(measure_opts.get('exclude') or []) + [box for _, box, _ in arts]
     copy_all = copy
     copy = [c for c in copy if c['key'] not in art_keys]
     # an art line is not assigned: drop any stored --assign for it
@@ -812,7 +815,7 @@ def solve(image, event, keep=SHAPE_POOL, wrap_cap_ratio=1.3, assign=None,
 
     return dict(image=image, event=event, size=m['size'], paper=m['paper'],
                 assign_points=assign_points, frames=frames,
-                art=[dict(keys=k, box=list(b)) for k, b in arts],
+                art=[dict(keys=k, box=list(b), why=w) for k, b, w in arts],
                 copy=[dict(key=c['key'], text=c['text']) for c in copy_all],
                 median_texture=round(med_tex, 2),
                 alignment=note, alignment_cost=round(cost, 3),

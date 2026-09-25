@@ -8,7 +8,10 @@
 Deliberately plain: it must not read as a poster. No embedded fonts, so it
 stays under 2KB and renders anywhere.
 """
-import argparse, textwrap
+import argparse, os, sys, textwrap
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import meta  # noqa: E402
 
 W, H = 1024, 1536
 BG, FG, MUTED, RULE = '#EFEEEC', '#2B2B2B', '#6B6B6B', '#C9C7C3'
@@ -68,6 +71,6 @@ if __name__ == '__main__':
     p.add_argument('--width', type=int, default=W)
     p.add_argument('--height', type=int, default=H)
     a = p.parse_args()
-    svg = build(a.style, a.event, a.reason, a.width, a.height)
+    svg = meta.stamp(build(a.style, a.event, a.reason, a.width, a.height))
     open(a.out, 'w').write(svg)
     print(f'wrote {a.out} ({len(svg)} bytes)')

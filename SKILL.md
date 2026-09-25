@@ -24,8 +24,10 @@ measurement is wrong: fix it or record the poster as flawed.
    than type -- hand-drawn, painted, brushed, 3D or chrome, multicoloured letter
    by letter, collaged, warped to a shape, or sitting on a photograph or
    painting -- stays as the original's pixels:
-   `--art headliner@X0,Y0,X1,Y1` (read the box off `overlay.py --grid`; keep it
-   clear of the lines around it). Its words still go in the SVG's `<desc>`.
+   `--art "headliner@X0,Y0,X1,Y1@3D chrome lettering"` (read the box off
+   `overlay.py --grid`; keep it clear of the lines around it; end with what
+   makes it unresettable, in a few words, for the SVG's metadata). Its words
+   still go in the SVG's `<desc>`.
    Everything else is reset. Only when **no** line can be reset, take the
    escape hatch:
    ```bash
@@ -102,7 +104,7 @@ measurement is wrong: fix it or record the poster as flawed.
 | `--character KEY=BRIEF` | the face's character, as a gate on the ranking |
 | `--face GROUP\|KEY=#N\|"Family:weight"` | choose a face; a copy key gives that line its own face |
 | `--case KEY=upper\|mixed` | case where the test is fooled |
-| `--art KEYS@X0,Y0,X1,Y1` | lettering that cannot be reset stays the original's pixels; the box is artwork (an obstacle, never blanked). Pair with `--exclude` for detailed artwork elsewhere |
+| `--art KEYS@X0,Y0,X1,Y1@WHY` | lettering that cannot be reset stays the original's pixels; the box is artwork (an obstacle, never blanked). WHY, a few words on what makes it unresettable, goes into the SVG's metadata. Pair with `--exclude` for detailed artwork elsewhere |
 | `--tilted KEYS@X0,Y0,X1,Y1@RISE` | copy set on a slant (a banner, a rotated panel): name the lines, a box round them, and the slope by eye in degrees rising to the right (`-8` falls); the exact angle is measured near it. Without RISE a bar or rays in the box can win. Warped or perspective type is still a skip |
 | `--knockout X0,Y0,X1,Y1` | a paper panel knocked out of a shape (reported as `possible_knockout`; right about 1 in 3, so look) |
 | `--artwork auto\|mask\|crop:..\|shapes:..\|none` | artwork treatment |
@@ -140,7 +142,8 @@ the generator imitated and is never shipped.
 | `character.py` | `vocab`; `blocks` (every line cut out); `rank BRIEF` |
 | `audit.py` | a finished SVG checked line by line against the original's intent |
 | `check_svg.py` | font-substitution check (run by convert) |
-| `manifest.py` | status of all 200 (`--todo`, `--flawed`) |
+| `manifest.py` | status of all 200 (`--todo`, `--flawed`); `--json` carries each SVG's metadata record; `--site-data` writes the site's `_data/poster_svg.json` for its index page (run after converting) |
+| `meta.py` | the metadata record every SVG carries (faults, text kept as bitmap and why, unset lines, faces): print, or `--refresh` |
 | `cannot_convert.py`, `flag_flawed.py` | the escape hatch; the flawed mark |
 | `measure.py` | band measurement as text, no rendering |
 | `catalogue.py` | the Google Fonts catalogue: `build` (once, ~5 min), `show FAMILY` |
