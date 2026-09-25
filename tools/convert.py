@@ -43,6 +43,13 @@ def knobs(a, stored):
         v = getattr(a, n)
         if v is not None and v != []:
             k[n] = v
+    # --assign names lines, so it replaces the stored pins for those lines
+    # only; replacing the whole list sent every unnamed line back to the
+    # aligner, which put a list a band out of step (screenprint_pop).
+    if a.assign and stored and not a.fresh:
+        said = {x.partition('=')[0].strip() for x in a.assign}
+        k['assign'] = [x for x in stored.get('assign') or []
+                       if x.partition('=')[0].strip() not in said] + list(a.assign)
     return k
 
 

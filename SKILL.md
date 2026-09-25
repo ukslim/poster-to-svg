@@ -131,7 +131,7 @@ that says the full workflow would fix it: run the workflow.
 | `--rule-length 0` | rule stripping eating glyphs |
 | `--contrast N` | noisy bands on photographic art (raise) |
 | `--wrap-cap-ratio R` | a wrapped headline split across too few bands (raise) |
-| `--assign KEY=#N[+#M]`, `KEY=none` | put copy on bands as read off the overlay; lifts the weak-alignment gate |
+| `--assign KEY=#N[+#M]`, `KEY=none` | put copy on bands as read off the overlay; lifts the weak-alignment gate. Replaces the stored pin for that line only; other stored pins stay |
 | `--character KEY=BRIEF` | the face's character, as a gate on the ranking |
 | `--face GROUP\|KEY=#N\|"Family:weight"` | choose a face; a copy key gives that line its own face |
 | `--case KEY=upper\|mixed` | case where the test is fooled |
