@@ -27,7 +27,7 @@ import sitepaths as poster_site  # noqa: E402
 DEFAULTS = dict(artwork='mask', face=[], solid_radius=24, rule_length=160,
                 rule_thick=5, min_glyphs=3, contrast=40, window=61,
                 wrap_cap_ratio=1.3, exclude=[], knockout=[], assign=[], character=[],
-                case=[], tilted=[], art=[])
+                case=[], tilted=[], art=[], align=[], track=[], fill=[], shadow=[])
 # Ambiguities that mean the copy is on the wrong lines. Building then only
 # produces a confident-looking wrong poster.
 BLOCKING = ('weak_alignment', 'no_alignment')
@@ -43,6 +43,19 @@ def knobs(a, stored):
         if v is not None and v != []:
             k[n] = v
     return k
+
+
+def face_by_name(spec, s):
+    """'display=#2' -> 'display=Anton 400', naming the candidate it meant."""
+    key, _, name = spec.partition('=')
+    if not name.startswith('#'):
+        return spec
+    g = s['groups'].get(key) or next(
+        (v for v in s['groups'].values() if key in v['lines']), None)
+    if g is None or not name[1:].isdigit() or int(name[1:]) > len(g['candidates']):
+        return spec
+    c = g['candidates'][int(name[1:]) - 1]
+    return f"{key}={c['family']} {c['sub']}"
 
 
 def composite(s, work, width=420):
@@ -125,6 +138,17 @@ def main():
                     help='lettering that cannot be reset (drawn, painted, 3D, on a photo): '
                          'those copy lines stay the original pixels, and WHY says what makes '
                          'it so, e.g. "headliner@0,80,1024,560@hand-painted brush lettering"')
+    ap.add_argument('--align', action='append', default=[], metavar='KEY=left|centre|right',
+                    help='the edge a copy line is ranged on, where the block detection '
+                         'got it wrong (a centred headline built off centre)')
+    ap.add_argument('--track', action='append', default=[], metavar='KEY=fit|EM',
+                    help='letter-spacing the measurement missed: fit spans the '
+                         "original's width, or an amount in em, e.g. headliner=0.1")
+    ap.add_argument('--fill', action='append', default=[], metavar='KEY=#RRGGBB',
+                    help="a copy line's colour, where the measured ink is wrong "
+                         '(colour fringes, a glow, a texture)')
+    ap.add_argument('--shadow', action='append', default=[], metavar='KEY=DX,DY,#RGB',
+                    help='a hard drop shadow behind a line, in px: headliner=6,6,#333333')
     ap.add_argument('--keep', type=int, default=80)
     ap.add_argument('--fresh', action='store_true',
                     help='ignore the knobs stored with an earlier solution')
@@ -163,6 +187,8 @@ def main():
               exclude=[tuple(int(v) for v in x.split(',')) for x in k['exclude']])
     # Stored as points, not band numbers: re-measurement may renumber bands.
     k['assign'] = s['assign_points']
+    # And a face chosen as #N by name: a re-solve may reorder the candidates.
+    k['face'] = [face_by_name(f, s) for f in k['face']]
     s['knobs'] = k
     summarise(s)
     json.dump(s, open(soln, 'w'), indent=1)

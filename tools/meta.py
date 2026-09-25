@@ -4,6 +4,7 @@
     python3 meta.py assets/poster-svg/pop_art-fete-v2.svg       # print it
     python3 meta.py assets/poster-svg/*.svg --refresh           # rewrite it
     python3 meta.py assets/poster-svg/*.svg --stale             # not built by this version
+    python3 meta.py assets/poster-svg/X.svg --reviewed          # looked at, and fixed
 
 Every SVG the tools write carries one <metadata id="p2svg-meta"> block holding
 a JSON record, so the file says for itself how it was made and what is wrong
@@ -26,6 +27,9 @@ with it, and `manifest.py` collects the records for the site's index page:
     version         the poster-to-svg that last built it: {commit, date (the
                     commit's), tag: "dirty" when built with uncommitted changes}
     built           the date of that build
+    reviewed        the date someone looked at this build's render and fixed
+                    what they could (SKILL.md step 6), or null: a build clears
+                    it, so a batch rebuild shows up as unreviewed
 
 Derived from the finished SVG and its stored solution, never supplied by hand
 (except `why`, which comes from the --art knob), so it cannot drift: every
@@ -130,7 +134,7 @@ def _faces(svg, sol=None):
                 hit = (get(16, 1) or css, get(17, 2))
             except Exception:
                 hit = (css, None)
-        texts = [html.unescape(t) for t in re.findall(
+        texts = [html.unescape(re.sub(r'<[^>]+>', '', t)) for t in re.findall(
             r'<text class="' + re.escape(css.lower()) + r'"[^>]*>(.*?)</text>', svg, re.S)]
         out.append(dict(family=hit[0], style=hit[1], weight=int(weight), text=texts))
     return out
@@ -163,7 +167,8 @@ def derive(svg, sol=None, old=None):
         m = re.search(r'aria-label="Not converted to SVG\. (.*?)"', svg, re.S)
         return dict(status='skipped', faults=None, fault_verdict=None, fault_outlook=None,
                     skip_reason=html.unescape(m.group(1)).strip() if m else None,
-                    version=old.get('version'), built=old.get('built'))
+                    version=old.get('version'), built=old.get('built'),
+                    reviewed=old.get('reviewed'))
     verdict, note = outlook(svg)
     rec = dict(status='converted', faults=reason(svg), fault_verdict=verdict,
                fault_outlook=note, skip_reason=None,
@@ -171,7 +176,8 @@ def derive(svg, sol=None, old=None):
                artwork=None, raster_bytes=sum(
                    len(base64.b64decode(b)) for b in
                    re.findall(r'data:image/[a-z+]+;base64,([A-Za-z0-9+/=]+)', svg)),
-               version=old.get('version'), built=old.get('built'))
+               version=old.get('version'), built=old.get('built'),
+                    reviewed=old.get('reviewed'))
     if sol:
         copy = _copy(sol)
         art = _art(sol)
@@ -192,6 +198,14 @@ def stamp(svg, sol=None):
     """The SVG with a fresh record, stamped as built now by this tool."""
     rec = derive(svg, sol)
     rec['version'], rec['built'] = tool_version(), datetime.date.today().isoformat()
+    rec['reviewed'] = None
+    return write(svg, rec)
+
+
+def reviewed(svg, sol=None):
+    """The SVG with its record re-derived and marked as looked at today."""
+    rec = derive(svg, sol, read(svg))
+    rec['reviewed'] = datetime.date.today().isoformat()
     return write(svg, rec)
 
 
@@ -222,11 +236,26 @@ def main():
                     help='re-derive the record from the SVG and its solution')
     ap.add_argument('--stale', action='store_true',
                     help='list the SVGs not built by this checkout, clean')
+    ap.add_argument('--reviewed', action='store_true',
+                    help="record that this build's render was looked at and fixed (step 6)")
     a = ap.parse_args()
     for p in a.svg:
         if a.stale:
             if not current(read(open(p, encoding='utf-8').read())):
                 print(p)
+        elif a.reviewed:
+            s, sol = open(p, encoding='utf-8').read(), solution_for(p)
+            # The review is where faces are chosen: one the ranking picked and
+            # nobody confirmed has not been reviewed, however the render looks.
+            from review import unchosen
+            left = unchosen(sol) if sol else []
+            if left:
+                raise SystemExit(
+                    f"{p}: not reviewed -- no face chosen for {', '.join(left)}. "
+                    f"Look at review.py, then --face GROUP=\"Family sub\" for each, "
+                    f"even to confirm the ranking's first")
+            open(p, 'w', encoding='utf-8').write(reviewed(s, sol))
+            print(f'{p}: reviewed')
         elif a.refresh:
             print(f"{p}: {'refreshed' if refresh_file(p) else 'unchanged'}")
         else:

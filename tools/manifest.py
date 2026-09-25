@@ -9,6 +9,7 @@ A converted SVG with no solution beside it is 'hand-built': it came from an
 exploratory session, not from the tool.
     python3 manifest.py --json     # write manifest.json
     python3 manifest.py --site-data   # write the site's _data/poster_svg.json
+    python3 manifest.py --unreviewed  # built, but nobody has looked at the render yet
 
 Derived by scanning the directories, so it cannot drift from reality. Each
 row carries the SVG's own metadata record (meta.py): faults, text kept as
@@ -25,7 +26,7 @@ import meta  # noqa: E402
 
 # Carried from the SVG's metadata record into its manifest row.
 META = ('faults', 'fault_verdict', 'fault_outlook', 'text_as_bitmap', 'not_reset',
-        'tilted', 'artwork', 'raster_bytes', 'version', 'built')
+        'tilted', 'artwork', 'raster_bytes', 'version', 'built', 'reviewed')
 
 
 def scan():
@@ -100,7 +101,8 @@ def site_data(rows):
             not_reset=[u['text'] for u in r.get('not_reset') or []],
             tilted=[abs(a['angle']) for a in r.get('tilted') or []],
             vector=r.get('raster_bytes') == 0,
-            version=r.get('version'), built=r.get('built'))
+            version=r.get('version'), built=r.get('built'),
+            reviewed=r.get('reviewed') if r['status'] != 'skipped' else True)
     return out
 
 
@@ -116,6 +118,8 @@ def main():
     ap.add_argument('--todo', action='store_true')
     ap.add_argument('--json', action='store_true')
     ap.add_argument('--flawed', action='store_true')
+    ap.add_argument('--unreviewed', action='store_true',
+                    help='converted posters whose build nobody has looked at (step 6)')
     ap.add_argument('--site-data', action='store_true',
                     help="write _data/poster_svg.json, which the site's SVG index page reads")
     a = ap.parse_args()
@@ -138,6 +142,11 @@ def main():
     todo = [r for r in rows if r['status'] == 'outstanding']
     hand = [r for r in rows if r['status'] == 'hand-built']
 
+    unreviewed = [r for r in rows if r['status'] in ('done', 'flawed') and not r.get('reviewed')]
+    if a.unreviewed:
+        for r in unreviewed:
+            print(f"{r['style']} {r['event']}")
+        return
     if a.todo:
         for r in todo:
             print(f"{r['style']} {r['event']}")
@@ -150,7 +159,8 @@ def main():
         return
 
     print(f'{len(rows)} posters: {len(done)} done, {len(hand)} hand-built, '
-          f'{len(flawed)} flawed, {len(skipped)} skipped, {len(todo)} outstanding')
+          f'{len(flawed)} flawed, {len(skipped)} skipped, {len(todo)} outstanding; '
+          f'{len(unreviewed)} built but not reviewed (--unreviewed)')
     if done:
         print('\ndone:')
         for r in done:

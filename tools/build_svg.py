@@ -82,8 +82,9 @@ def _pick(group, name):
     if name.startswith('#'):
         return cands[int(name[1:]) - 1]
     if ':' not in name:
-        for c in cands:
-            if name.lower() in (c['family'] + ' ' + c['sub']).lower():
+        full = lambda c: (c['family'] + ' ' + c['sub']).lower()
+        for c in [c for c in cands if full(c) == name.lower()] + cands:
+            if name.lower() in full(c):
                 return c
     # Not on the shortlist: any style in the catalogue will do, as
     # "Family", "Family:600" or "Family:600i". Someone who has looked at the
@@ -104,18 +105,25 @@ def from_catalogue(name, group=None):
     italic = style.endswith('i')
     want = int(style.rstrip('i')) if style.rstrip('i').isdigit() else None
     fams = {r['family'].lower() for r in catalogue.load()}
-    fam = fam.strip()
+    fam, wdth = fam.strip(), None
     if fam.lower() not in fams:
+        # also the names this tool prints: "Radio Canada 700 wdth75",
+        # "Sofia Sans Condensed 800 italic"
         words = fam.split()
-        while words and words[-1].lower() in (*STYLE_WEIGHTS, 'italic'):
+        while words and (words[-1].lower() in (*STYLE_WEIGHTS, 'italic')
+                         or words[-1].isdigit() or re.fullmatch(r'wdth\d+', words[-1])):
             w = words.pop().lower()
             if w == 'italic':
                 italic = True
+            elif w.startswith('wdth'):
+                wdth = int(w[4:])
+            elif w.isdigit():
+                want = want or int(w)
             elif want is None:
                 want = STYLE_WEIGHTS[w]
         fam = ' '.join(words)
     hits = [r for r in catalogue.load() if r['family'].lower() == fam.lower()
-            and bool(r.get('italic')) == italic and not r.get('wdth')]
+            and bool(r.get('italic')) == italic and r.get('wdth') == wdth]
     if not hits:
         raise SystemExit(
             f'--face {name!r} is not on the shortlist or in the Google Fonts '
@@ -202,6 +210,23 @@ def place(sol, chosen, shapes=None):
     from layout import anchors
     anchor_of, block_of = anchors(lines, sorted({b for a in sol['assigned'] for b in a['bands']}),
                                   sol['size'][0])
+    # What a look settles and measurement missed: the edge a line is ranged
+    # on (--align), and tracking the measurement did not find (--track).
+    knobs = sol.get('knobs') or {}
+    align = dict(x.split('=', 1) for x in knobs.get('align') or [])
+    track = dict(x.split('=', 1) for x in knobs.get('track') or [])
+    # KEY=#RGB colours the line; KEY=#RGB@WORDS colours only those words (a
+    # headline whose last word is in the accent colour)
+    # KEY=DX,DY,#RGB: a hard drop shadow (an extruded or offset-printed look)
+    shadow = dict(x.split('=', 1) for x in knobs.get('shadow') or [])
+    fill, word_fill = {}, {}
+    for x in knobs.get('fill') or []:
+        key, _, spec = x.partition('=')
+        colour, _, words = spec.partition('@')
+        if words:
+            word_fill.setdefault(key, []).append((words, colour))
+        else:
+            fill[key] = colour
     for gname, g in sol['groups'].items():
         c = chosen[gname]
         if not c['embed']:
@@ -238,7 +263,10 @@ def place(sol, chosen, shapes=None):
                 # span the measured line, rounded to 0.05em: letter-spacing is
                 # specified in round values, and rounding keeps noise out.
                 ls_em = 0.0
-                if b.get('track') and len(part) > 1:
+                said = track.get(a['key'])
+                if said and said != 'fit':
+                    ls_em = float(said.rstrip('em'))
+                elif (b.get('track') or said == 'fit') and len(part) > 1:
                     solid = face.width(part, size)
                     if solid:
                         need = (b['width'] - solid) / (len(part) - 1) / size
@@ -281,15 +309,69 @@ def place(sol, chosen, shapes=None):
                           f"{one:.0f}-{big:.0f} -- a band is clamped to clear "
                           f"artwork or the trim because the face runs wider "
                           f"than the original. Check it, or pick a narrower face.")
+            if track.get(a['key']) == 'fit' and len(sized) > 1 and unified:
+                # one line wrapped is tracked alike on every row; the face's
+                # letters differ in width from the generator's row by row
+                one = round(float(np.median([ls for *_, ls in sized])) / 0.05) * 0.05
+                sized = [(b, part, size, one) for b, part, size, _ in sized]
+            sized = keep_leading(sized, face, a['key'])
             for (b, part, size, ls_em), bi in zip(sized, a['bands']):
                 out.append(dict(group=gname, key=a['key'], text=part,
                                 size=round(size, 2), room=room, ls_em=ls_em,
-                                y=b['baseline'], fill=b['rgb'], cap=b['cap'],
+                                y=b['baseline'], fill=fill.get(a['key']) or b['rgb'],
+                                cap=b['cap'],
                                 left=b['left'], right=b['right'],
-                                anchor=anchor_of.get(bi, 'left'),
-                                block=block_of.get(bi), frame=b.get('frame')))
+                                anchor=align.get(a['key']) or anchor_of.get(bi, 'left'),
+                                block=block_of.get(bi), frame=b.get('frame'),
+                                words=word_fill.get(a['key']),
+                                shadow=shadow.get(a['key'])))
     unify_siblings(out, {g: f for g, (c, f) in used.items()})
     return out, used
+
+
+def keep_leading(sized, face, key):
+    """The rows of a wrapped line never closer than the original set them.
+
+    Rows keep their measured baselines, so a face whose letters stand taller
+    at the size the bands call for eats the space between them -- and one
+    band measured tall (an ampersand or accent standing above the capitals)
+    raises the shared size enough to make two rows of a headline touch. Bring
+    the entity down until every pair of rows keeps at least the original's
+    gap between one row's lowest ink and the next row's highest.
+
+    Accents are left out of that (band-finding leaves them out), but checked
+    on their own: a font's circumflex stands far taller than the flattened
+    one a generator draws over a capital, and in a tight title the reset
+    FÊTE's accent otherwise lands on the letters of the row above.
+    """
+    k = 1.0
+    for (b1, p1, s1, _), (b2, p2, s2, _) in zip(sized, sized[1:]):
+        if b1.get('frame') or b2.get('frame') or b2['baseline'] <= b1['baseline']:
+            continue
+        # letters only: band-finding leaves punctuation out of a band's depth
+        low = [face.bounds(c)[1] for c in p1 if c.isalnum() and face.has(c)]
+        desc = max(0.0, -min(low) / face.upem) if low else 0.0
+        # rows may close up to half the original gap, never touch: a
+        # unified size may stand a row a little above its own measure
+        room = b2['baseline'] - b1['baseline'] - max(0, b2['y0'] - b1['y1']) / 2
+        # every row scaled by one factor, so rows the designer stepped in
+        # size keep their proportion. Descenders count only as deep as the
+        # original row's own: where it had none, its measured bottom is the
+        # baseline, and the face's descenders fall in the gap as they did.
+        need = top_ratio(face, p2) * s2 + min(desc * s1, max(0, b1['y1'] - b1['baseline']))
+        if need > 0:
+            k = min(k, room / need)
+        marked = [c for c in p2 if not c.isascii() and c.isalpha() and face.has(c)]
+        if marked:
+            # the accent may enter the gap, but must clear the row above
+            tall = max(face.bounds(c)[3] for c in marked) / face.upem
+            k = min(k, (b2['baseline'] - b1['baseline']) / (tall * s2))
+    if k >= 1.0:
+        return sized
+    if k < 0.9:
+        print(f"  ! {key}: brought down {100 * (1 - k):.0f}% so its rows keep the "
+              f"original's leading -- the face stands taller than the lettering")
+    return [(b, part, size * k, ls) for b, part, size, ls in sized]
 
 
 def unify_siblings(placed, faces):
@@ -843,6 +925,16 @@ def artwork_svg(spec, sol, workdir, quality=76):
     raise SystemExit(f'unknown artwork spec {spec!r}')
 
 
+def coloured(p):
+    """A line's text, with any words given their own colour as tspans."""
+    out = esc(p['text'])
+    for words, colour in p.get('words') or []:
+        w = esc(words)
+        if w in out:
+            out = out.replace(w, f'<tspan fill="{colour}">{w}</tspan>', 1)
+    return out
+
+
 def build(sol, chosen, artwork, workdir, title=''):
     # Where the artwork has been described, the type can be fitted against the
     # shapes themselves rather than their bounding boxes.
@@ -893,15 +985,28 @@ def build(sol, chosen, artwork, workdir, title=''):
 
     css.append('      text { white-space: pre; }')
 
+    # One filter per distinct shadow, applied to the <text> itself: the line
+    # stays a single element, so nothing that reads the SVG sees it twice.
+    shadows, filters = {}, []
+    for p in placed:
+        if p.get('shadow') and p['shadow'] not in shadows:
+            dx, dy, colour = p['shadow'].split(',')
+            n = f'p2svg-shadow{len(shadows)}'
+            shadows[p['shadow']] = n
+            filters.append(f'    <filter id="{n}" x="-5%" y="-20%" width="115%" height="150%">'
+                           f'<feDropShadow dx="{dx}" dy="{dy}" stdDeviation="0" '
+                           f'flood-color="{colour}" flood-opacity="1"/></filter>')
+
     body = '\n'.join(
         f'    <text class="{classes[p["group"]].lower()}" x="{p["x"]}" '
         + ({'centre': 'text-anchor="middle" ', 'right': 'text-anchor="end" '}
            .get(p['anchor'], '')) +
         f'y="{p["y"]}" font-size="{p["size"]}" fill="{p["fill"]}"'
         + (f' letter-spacing="{p["ls_em"]:g}em"' if p.get('ls_em') else '')
+        + (f' filter="url(#{shadows[p["shadow"]]})"' if p.get('shadow') else '')
         + (f' transform="rotate({p["frame"]["angle"]:.2f} {p["frame"]["cx"]:.1f} '
            f'{p["frame"]["cy"]:.1f})"' if p.get('frame') else '') + '>'
-        f'{esc(p["text"])}</text>' for p in placed)
+        f'{coloured(p)}</text>' for p in placed)
 
     return f'''<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
@@ -915,6 +1020,7 @@ def build(sol, chosen, artwork, workdir, title=''):
     <style type="text/css"><![CDATA[
 {chr(10).join(css)}
     ]]></style>
+{chr(10).join(filters)}
   </defs>
 
   <rect width="{w}" height="{h}" fill="{sol['paper']}"/>

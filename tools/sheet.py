@@ -3,6 +3,7 @@
 
     python3 sheet.py /tmp/p2svg-mid_century_modern_graphic-gig/solution.json
     python3 sheet.py SOLUTION --group display --n 8 -o sheet.png
+    python3 sheet.py SOLUTION --group display --try "Jost:800" --try "League Spartan:800"
 
 For each face group, the group's largest line cropped from the poster, then
 the same words set in each of the top candidates at the measured cap height.
@@ -41,8 +42,10 @@ def tile(img, caption, h):
     return out
 
 
-def group_sheet(sol, gname, n=6):
-    from build_svg import pick
+def group_sheet(sol, gname, n=6, extra=()):
+    """`extra`: catalogue faces ("Family:weight") shown after the shortlist,
+    for a face the ranking never considered."""
+    from build_svg import pick, from_catalogue
     from solve_type import split_text
     g = sol['groups'][gname]
     L = sol['lines']
@@ -69,9 +72,11 @@ def group_sheet(sol, gname, n=6):
     ink = tuple(int(b['rgb'][i:i + 2], 16) for i in (1, 3, 5))
     ground = b.get('ground') or sol['paper']
     ground = tuple(int(ground[i:i + 2], 16) for i in (1, 3, 5))
-    for i, c in enumerate(g['candidates'][:n], start=1):
+    picks = [(f'#{i}', lambda i=i: pick(g, f'#{i}')) for i in range(1, min(n, len(g['candidates'])) + 1)]
+    picks += [(name, lambda name=name: from_catalogue(name, g)) for name in extra]
+    for i, get in picks:
         try:
-            c = pick(g, f'#{i}')
+            c = get()
         except SystemExit:
             continue
         from svgkit import Face, top_ratio
@@ -82,7 +87,7 @@ def group_sheet(sol, gname, n=6):
         img = Image.new('RGB', (bb[2] - bb[0] + 2 * pad, orig.height), ground)
         ImageDraw.Draw(img).text((pad - bb[0], pad + b['baseline'] - b['y0']), text,
                                  font=f, fill=ink, anchor='ls')
-        cap = f"#{i} {c['family']} {c['sub']}{'' if c['embed'] else '  [id-only]'}"
+        cap = f"{i} {c['family']} {c['sub']}{'' if c['embed'] else '  [id-only]'}"
         tiles.append(tile(img, cap, h))
     sheet = Image.new('RGB', (W, sum(t.height + 4 for t in tiles)), '#DDDDDD')
     y = 0
@@ -97,10 +102,12 @@ def main():
     ap.add_argument('solution')
     ap.add_argument('--group', action='append', help='default: every group')
     ap.add_argument('--n', type=int, default=6)
+    ap.add_argument('--try', dest='extra', action='append', default=[], metavar='FAMILY:WEIGHT',
+                    help='also show this catalogue face; repeatable')
     ap.add_argument('-o', '--out')
     a = ap.parse_args()
     sol = json.load(open(a.solution))
-    sheets = [s for s in (group_sheet(sol, g, a.n) for g in (a.group or sol['groups']))
+    sheets = [s for s in (group_sheet(sol, g, a.n, a.extra) for g in (a.group or sol['groups']))
               if s is not None]
     out = Image.new('RGB', (W * len(sheets) + 8 * (len(sheets) - 1),
                             max(s.height for s in sheets)), 'white')

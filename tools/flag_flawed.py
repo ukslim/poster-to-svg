@@ -148,7 +148,9 @@ def main():
             print(f'{p}: mark redrawn')
             continue
         s = strip_label(s) if a.clear else label(s, a.flaw, a.outlook, a.verdict)
-        open(p, 'w', encoding='utf-8').write(meta.refresh(s, meta.solution_for(p)))
+        # Marking a flaw means the render was looked at: that is the review.
+        s = (meta.refresh if a.clear else meta.reviewed)(s, meta.solution_for(p))
+        open(p, 'w', encoding='utf-8').write(s)
         print(f"{p}: {'mark cleared' if a.clear else 'marked flawed'}")
 
 

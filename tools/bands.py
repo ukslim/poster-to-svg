@@ -721,6 +721,19 @@ def dedupe(lines, rejected):
                 dup = k
                 break
         if dup:
+            # The same line found again in another colour: a headline whose
+            # last word is in the accent colour is one line, and the dark
+            # band alone stops where the accent's lighter ink begins. Take
+            # the accent's reach into the line, so its letters are sized
+            # against and blanked -- but only for a true twin (same rows,
+            # same size), never a panel or ground behind the type.
+            if (cand['colour'] != dup['colour'] and not cand.get('is_ground')
+                    and not tall(cand) and overlap(cand, dup, 'y0', 'y1') > 0.8
+                    and abs(cand['cap'] - dup['cap']) <= 0.15 * max(dup['cap'], 1)):
+                lo, hi = min(dup['left'], cand['left']), max(dup['right'], cand['right'])
+                if hi - lo <= 1.5 * (dup['right'] - dup['left']):
+                    dup['left'], dup['right'] = lo, hi
+                    dup['width'] = hi - lo
             rejected.append(dict(colour=cand['colour'], y0=cand['y0'], y1=cand['y1'],
                                  why=f"duplicate of {dup['colour']} band "
                                      f"y{dup['y0']}..{dup['y1']}"))

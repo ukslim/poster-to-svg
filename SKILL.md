@@ -63,7 +63,7 @@ measurement is wrong: fix it or record the poster as flawed.
 5. **Look at `look.png`**: the assignment, the rebuild beside it, and a
    contact sheet per face group (the original line above its top candidates).
    Decide:
-   - **faces**: `--face display=#2`, any catalogue face
+   - **faces**: `--face display=#2` (stored by name), any catalogue face
      `--face body="PT Sans Narrow:700"`, or one line on its own
      `--face date="Fira Sans Condensed:600"`
    - **case**: where the lettering fools the test, `--case support=mixed`
@@ -72,21 +72,52 @@ measurement is wrong: fix it or record the poster as flawed.
      (see Artwork below)
    Done when: each face was chosen by eye against its contact sheet.
 
-6. **Audit, look, fix.** `python3 $S/audit.py {style}-{event}` lists leads
-   with their numbers: alignment edge lost, size or weight off, case, ghosts
-   of the original ink, damaged artwork, type left in the artwork. Then view
-   the render beside the original at a size where small type is legible: the
-   headline, the footer, anywhere type meets artwork. Fix with a knob and
-   rebuild; after three attempts keep the best and mark it:
+6. **Review the type, and fix it.** This step is the point of the workflow,
+   not a check on it: the tools measure, but only a look catches a face of
+   the wrong genre, a ghost letter, or a headline off centre.
+   `python3 $S/review.py {style}-{event}` shows the original and the rebuild
+   whole, then each face group as a full-width strip, original over rebuild,
+   captioned with its face, whether anyone chose it, and the next candidates.
+   `python3 $S/audit.py {style}-{event}` lists measured leads (edge lost, size
+   or weight off, case, ghosts, damaged artwork). For each face group ask:
+   - **Genre.** The same class as the original -- sans, serif, slab, script --
+     and the same kind within it: geometric, grotesque or humanist; round or
+     square bowls (look at C, O, G); stroke contrast; serif size. A slab where
+     the original is sans, or the reverse, is wrong however well it scored.
+   - **Signature letters.** Where the lettering's character lives in letters
+     no face has -- a flared V, a spurred C, a custom ampersand -- the line is
+     lettering: `--art` it rather than lose what makes it.
+   - **Hand-made lettering.** Hand-lettered, painted, engraved or decorated
+     titles are lettering: `--art`.
+   - **Tone.** The face belongs to the poster's period and mood: no playful or
+     novelty face on a sober poster, no rounded techno face on a period one.
+   - **Layout.** A centred block stays centred; sizes keep the original's
+     hierarchy; the rows of a block never touch; no ghost of the original ink.
+   Fix with `--face` (alternatives: `sheet.py` on the solution, or any
+   catalogue face), `--art`, `--character`, and rebuild. Choose **every**
+   group's face with `--face GROUP="Family sub"`, even to confirm the
+   ranking's first: `meta.py --reviewed` refuses a poster with a face nobody
+   chose. When it reads right:
+   `python3 $S/meta.py assets/poster-svg/{style}-{event}-v2.svg --reviewed`.
+   After three attempts keep the best and mark it instead:
    ```bash
    python3 $S/flag_flawed.py assets/poster-svg/{style}-{event}-v2.svg --verdict fixable \
      --flaw "What is still wrong, precisely." --outlook "The fix or feature that would cure it."
    ```
-   Done when: the audit's remaining leads are explained and the render reads
-   right, or the poster is flagged.
+   Done when: every face was chosen against this checklist and the poster is
+   marked reviewed, or it is flagged.
 
 7. **Report**: the faces and the evidence for them, the artwork treatment,
    and every place you declined to copy the original, with its measurement.
+
+## Rebuilding many posters
+
+After a tool change, `convert.py` re-run over stored solutions rebuilds
+without anyone looking: every build clears its `reviewed` date, and
+`manifest.py --unreviewed` is the queue. A batch is not finished until each
+poster whose render changed has been through step 6 -- looked at against the
+original and fixed with knobs -- not merely flagged. Never write an outlook
+that says the full workflow would fix it: run the workflow.
 
 ## Reference
 
@@ -106,6 +137,10 @@ measurement is wrong: fix it or record the poster as flawed.
 | `--case KEY=upper\|mixed` | case where the test is fooled |
 | `--art KEYS@X0,Y0,X1,Y1@WHY` | lettering that cannot be reset stays the original's pixels; the box is artwork (an obstacle, never blanked). WHY, a few words on what makes it unresettable, goes into the SVG's metadata. Pair with `--exclude` for detailed artwork elsewhere |
 | `--tilted KEYS@X0,Y0,X1,Y1@RISE` | copy set on a slant (a banner, a rotated panel): name the lines, a box round them, and the slope by eye in degrees rising to the right (`-8` falls); the exact angle is measured near it. Without RISE a bar or rays in the box can win. Warped or perspective type is still a skip |
+| `--align KEY=left\|centre\|right` | the edge a line is ranged on, where block detection got it wrong: a centred headline built off centre |
+| `--track KEY=fit\|EM` | letter-spacing the measurement missed: `fit` spans the original's width (one value for a wrapped line), or an amount in em |
+| `--fill KEY=#RRGGBB[@WORDS]` | a line's colour, where the measured ink is wrong (glitch fringes, a glow, texture); with `@WORDS`, only those words: a headline whose last word is in the accent colour |
+| `--shadow KEY=DX,DY,#RGB` | a hard drop shadow behind a line (extruded or offset-printed type), in px |
 | `--knockout X0,Y0,X1,Y1` | a paper panel knocked out of a shape (reported as `possible_knockout`; right about 1 in 3, so look) |
 | `--artwork auto\|mask\|crop:..\|shapes:..\|none` | artwork treatment |
 | `--force`, `--fresh`, `--resolve-only` | build despite weak alignment; ignore stored knobs; solve only |
@@ -139,6 +174,7 @@ the generator imitated and is never shipped.
 | `convert.py` | solve, build, check, publish one poster; writes `look.png` |
 | `overlay.py` | the band assignment drawn on the poster (`--grid` for coordinates; `--vs-solution`, `--vs-baseline`) |
 | `sheet.py` | contact sheet: the original line beside the shortlist |
+| `review.py` | the type review: each face group as a full-width strip, original over rebuild |
 | `character.py` | `vocab`; `blocks` (every line cut out); `rank BRIEF` |
 | `audit.py` | a finished SVG checked line by line against the original's intent |
 | `check_svg.py` | font-substitution check (run by convert) |
