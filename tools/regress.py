@@ -35,6 +35,15 @@ def knobs_of(sol):
     k.update({n: v for n, v in (sol.get('knobs') or {}).items() if n in DEFAULT_KNOBS})
     k['exclude'] = [tuple(int(v) for v in x.split(',')) if isinstance(x, str) else tuple(x)
                     for x in (k.get('exclude') or [])]
+    # As solve() does: lettering kept as art is not looked for, and its box
+    # is excluded; lines set on a slant are measured in their own frame by
+    # --tilted, so the level measurement here says nothing about them.
+    from solve_type import parse_art, parse_tilt
+    raw = sol.get('knobs') or {}
+    arts = [parse_art(a) for a in raw.get('art') or []]
+    k['exclude'] += [tuple(box) for _, box, _ in arts]
+    k['skip_keys'] = ({key for keys, _, _ in arts for key in keys}
+                      | {key for t in raw.get('tilted') or [] for key in parse_tilt(t)[0]})
     return k
 
 
@@ -61,7 +70,7 @@ def measure_one(name):
                        contrast=k['contrast'], window=k['window'],
                        wrap_cap_ratio=k['wrap_cap_ratio'], exclude=k['exclude'])
         event = name.rsplit('-', 2)[1]
-        copy = load_copy(event)
+        copy = [c for c in load_copy(event) if c['key'] not in k['skip_keys']]
         assigned, _, cost = assign_copy(m['lines'], copy,
                                         wrap_cap_ratio=k['wrap_cap_ratio'])
         out = summary(m['lines'], assigned, cost)
@@ -72,7 +81,8 @@ def measure_one(name):
             from align import apply_assign
             try:
                 pinned, _ = apply_assign(m['lines'], copy, [dict(a) for a in assigned],
-                                         k['assign'])
+                                         [p for p in k['assign']
+                                          if p.split('=')[0] not in k['skip_keys']])
                 out['pinned'] = summary(m['lines'], pinned, cost)['assigned']
             except SystemExit as e:
                 out['pinned_error'] = str(e)

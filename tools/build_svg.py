@@ -194,9 +194,13 @@ def clear_width(left, top, bot, obs, page_w, margin=8, orig_right=None):
         # If the original line already ran past this shape, the overlap is the
         # design -- a Bauhaus title set across a circle, type over a bar -- and
         # holding the reset line clear of it shrinks the headline by a quarter
-        # to solve a problem the poster does not have. Only keep type out of
-        # artwork the original itself kept out of.
+        # to solve a problem the poster does not have. So it may run as far
+        # into the shape as the original did -- but no further: a box is
+        # coarse (a diagonal bar, a flower on a stem), and a wider reset line
+        # given no limit at all ran into the artwork itself (suprematism's
+        # title into the bar, botanical's support line into the flower).
         if orig_right is not None and orig_right > x0:
+            limit = min(limit, orig_right + margin)
             continue
         limit = min(limit, x0 - margin)
     return max(20.0, limit - left)
@@ -219,6 +223,9 @@ def place(sol, chosen, shapes=None):
     # headline whose last word is in the accent colour)
     # KEY=DX,DY,#RGB: a hard drop shadow (an extruded or offset-printed look)
     shadow = dict(x.split('=', 1) for x in knobs.get('shadow') or [])
+    # KEY: never wider than the original line -- where no narrower cut of the
+    # chosen face exists and the line must stay inside the design's frame
+    fit = set(knobs.get('fit') or [])
     fill, word_fill = {}, {}
     for x in knobs.get('fill') or []:
         key, _, spec = x.partition('=')
@@ -289,6 +296,8 @@ def place(sol, chosen, shapes=None):
                 room = (clear_width(b['left'], b['y0'], b['y1'], obs,
                                     sol['size'][0], orig_right=b['right'])
                         if not b.get('frame') else max(hi - lo, 1.25 * b['width']))
+                if a['key'] in fit:
+                    room = min(room, b['right'] - b['left'] + 2)
                 if hi - lo > room:
                     size *= room / (hi - lo)
                 sized.append((b, part, size, ls_em))
@@ -316,9 +325,18 @@ def place(sol, chosen, shapes=None):
                 sized = [(b, part, size, one) for b, part, size, _ in sized]
             sized = keep_leading(sized, face, a['key'])
             for (b, part, size, ls_em), bi in zip(sized, a['bands']):
+                # A line set well below its measured size (a wider face
+                # clamped to the room it has) keeps its place in the design
+                # by staying centred on the original line, not by sitting on
+                # the original baseline with the lost height all above it --
+                # a gap over a headline and its foot pressed on what is below.
+                y = b['baseline']
+                shown = top_ratio(face, part) * size
+                if shown < 0.9 * b['cap'] and not b.get('frame'):
+                    y = round(b['baseline'] - (b['cap'] - shown) / 2, 1)
                 out.append(dict(group=gname, key=a['key'], text=part,
                                 size=round(size, 2), room=room, ls_em=ls_em,
-                                y=b['baseline'], fill=fill.get(a['key']) or b['rgb'],
+                                y=y, fill=fill.get(a['key']) or b['rgb'],
                                 cap=b['cap'],
                                 left=b['left'], right=b['right'],
                                 anchor=align.get(a['key']) or anchor_of.get(bi, 'left'),

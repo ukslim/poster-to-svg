@@ -25,11 +25,14 @@ import sitepaths as poster_site  # noqa: E402
 JUDGED = os.path.join(os.path.dirname(HERE), 'tests', 'judged.json')
 
 
-def pins_for(sol, copy):
-    """-> ['key=x,y;x,y', ..., 'key=none'] from a stored solution."""
+def pins_for(sol, copy, skip=()):
+    """-> ['key=x,y;x,y', ..., 'key=none'] from a stored solution. Lines in
+    `skip` (kept as art, or set on a slant) are left to their own knobs."""
     L = sol['lines']
-    out, got = [], set()
+    out, got = [], set(skip)
     for a in sol['assigned']:
+        if a['key'] in skip:
+            continue
         pts = ';'.join(f"{(L[b]['left'] + L[b]['right']) // 2},"
                        f"{(L[b]['y0'] + L[b]['y1']) // 2}" for b in a['bands'])
         out.append(f"{a['key']}={pts}")
@@ -50,7 +53,7 @@ def check(name, sol, pins):
                    rule_length=k['rule_length'], rule_thick=k['rule_thick'],
                    contrast=k['contrast'], window=k['window'],
                    wrap_cap_ratio=k['wrap_cap_ratio'], exclude=k['exclude'])
-    copy = load_copy(name.rsplit('-', 2)[1])
+    copy = [c for c in load_copy(name.rsplit('-', 2)[1]) if c['key'] not in k['skip_keys']]
     assigned, _, _ = assign_copy(m['lines'], copy, wrap_cap_ratio=k['wrap_cap_ratio'])
     kept, problems, owner = [], [], {}
     for p in pins:
@@ -85,7 +88,8 @@ def main():
         name = short + '-v2'
         path = os.path.join(poster_site.solutions(), name + '.json')
         sol = json.load(open(path))
-        pins = pins_for(sol, load_copy(short.rsplit('-', 1)[1]))
+        from regress import knobs_of
+        pins = pins_for(sol, load_copy(short.rsplit('-', 1)[1]), knobs_of(sol)['skip_keys'])
         kept, problems = check(name, sol, pins)
         flag = f'  {len(problems)} not pinnable' if problems else ''
         print(f'{short:40} {len(kept)}/{len(pins)} pinned{flag}')

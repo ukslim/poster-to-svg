@@ -27,7 +27,8 @@ import sitepaths as poster_site  # noqa: E402
 DEFAULTS = dict(artwork='mask', face=[], solid_radius=24, rule_length=160,
                 rule_thick=5, min_glyphs=3, contrast=40, window=61,
                 wrap_cap_ratio=1.3, exclude=[], knockout=[], assign=[], character=[],
-                case=[], tilted=[], art=[], align=[], track=[], fill=[], shadow=[])
+                case=[], tilted=[], art=[], align=[], track=[], fill=[], shadow=[],
+                fit=[])
 # Ambiguities that mean the copy is on the wrong lines. Building then only
 # produces a confident-looking wrong poster.
 BLOCKING = ('weak_alignment', 'no_alignment')
@@ -149,6 +150,9 @@ def main():
                          '(colour fringes, a glow, a texture)')
     ap.add_argument('--shadow', action='append', default=[], metavar='KEY=DX,DY,#RGB',
                     help='a hard drop shadow behind a line, in px: headliner=6,6,#333333')
+    ap.add_argument('--fit', action='append', default=[], metavar='KEY',
+                    help="set this line no wider than the original's, where it must stay "
+                         'inside a frame and no narrower cut of its face exists')
     ap.add_argument('--keep', type=int, default=80)
     ap.add_argument('--fresh', action='store_true',
                     help='ignore the knobs stored with an earlier solution')

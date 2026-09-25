@@ -141,6 +141,7 @@ that says the full workflow would fix it: run the workflow.
 | `--track KEY=fit\|EM` | letter-spacing the measurement missed: `fit` spans the original's width (one value for a wrapped line), or an amount in em |
 | `--fill KEY=#RRGGBB[@WORDS]` | a line's colour, where the measured ink is wrong (glitch fringes, a glow, texture); with `@WORDS`, only those words: a headline whose last word is in the accent colour |
 | `--shadow KEY=DX,DY,#RGB` | a hard drop shadow behind a line (extruded or offset-printed type), in px |
+| `--fit KEY` | set a line no wider than the original's, where it must stay inside a frame and the face has no narrower cut (a narrower cut of the same face is better: try `sheet.py --try "Family 700 wdth75"` first) |
 | `--knockout X0,Y0,X1,Y1` | a paper panel knocked out of a shape (reported as `possible_knockout`; right about 1 in 3, so look) |
 | `--artwork auto\|mask\|crop:..\|shapes:..\|none` | artwork treatment |
 | `--force`, `--fresh`, `--resolve-only` | build despite weak alignment; ignore stored knobs; solve only |

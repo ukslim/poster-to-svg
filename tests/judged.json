@@ -1,143 +1,299 @@
 {
- "_about": "Which copy assignment is right, per poster, as judged by eye on overlay.py. 'golden' names it: 'stored' (the solution in the site), 'baseline' (tests/regress_baseline.json), or null when neither is right. The stored solutions were made with in-progress or ad-hoc code, so 'stored' is a target for the tool, not something it once did. Judged 2026-09-24.",
+ "_about": "Which copy assignment is right, per poster, as judged by eye on overlay.py. 'golden' names it: 'stored' (the solution in the site), 'baseline' (tests/regress_baseline.json), or null when neither is right. The stored solutions were made with in-progress or ad-hoc code, so 'stored' is a target for the tool, not something it once did. Judged 2026-09-24. All converted posters re-judged 2026-09-25 in the full type review.",
  "risograph-gig": {
   "golden": "stored",
-  "note": "current leaves FLOOD unassigned"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "taisho_modern-fete": {
   "golden": "stored",
-  "note": "current no longer detects VILLAGE FETE"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "bauhaus_modernist-fete": {
-  "golden": "baseline",
-  "note": "current also assigns footer0 FREE ENTRY"
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25; earlier: current also assigns footer0 FREE ENTRY"
  },
  "bauhaus_modernist-gig": {
-  "golden": "baseline",
-  "note": "same; footer edge moved 5px"
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25; earlier: same; footer edge moved 5px"
  },
  "botanical_scientific-fete": {
   "golden": "stored",
-  "note": "current merges venue into date and puts beneficiary on a plate caption"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "contemporary_flat_illustration-fete": {
   "golden": "stored",
-  "note": "current scatters the attractions over the jar"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "factory_records-fete": {
-  "golden": null,
-  "note": "title is three stepped bands Brindlewick/Village/Fete; stored used two, current only the giant Fete"
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25; earlier: title is three stepped bands Brindlewick/Village/Fete; stored used two, current only the giant Fete"
  },
  "low_poly-fete": {
   "golden": "stored",
-  "note": "current misses the 3D title and slides every line down"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "mid_century_modern_graphic-fete": {
   "golden": "stored",
-  "note": "current leaves ATTRACTIONS label unassigned"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "orphism-fete": {
   "golden": "stored",
-  "note": "current drops the beneficiary"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "screenprint_pop-fete": {
   "golden": "stored",
-  "note": "current mangles the list and drops FREE ENTRY"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "zagreb_school_animation-fete": {
   "golden": "stored",
-  "note": "current moves footer0 to a small band on the right"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "botanical_scientific-gig": {
   "golden": "stored",
-  "note": "done poster; stored assignment checked on the overlay, every line right"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "child_paint_pro_typography-fete": {
   "golden": "stored",
-  "note": "done poster; stored assignment checked on the overlay, every line right"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "concrete_art-gig": {
   "golden": "stored",
-  "note": "done poster; stored assignment checked on the overlay, every line right"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "contemporary_editorial-fete": {
   "golden": "stored",
-  "note": "done poster; stored assignment checked on the overlay, every line right"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "contemporary_editorial-gig": {
   "golden": "stored",
-  "note": "done poster; stored assignment checked on the overlay, every line right"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "contemporary_flat_illustration-gig": {
   "golden": "stored",
-  "note": "done poster; stored assignment checked on the overlay, every line right"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "cubist_exhibition-gig": {
   "golden": "stored",
-  "note": "done poster; stored assignment checked on the overlay, every line right"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "cut_paper_matisse-fete": {
   "golden": "stored",
-  "note": "done poster; stored assignment checked on the overlay, every line right"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "cut_paper_matisse-gig": {
   "golden": "stored",
-  "note": "done poster; stored assignment checked on the overlay, every line right"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "de_stijl-fete": {
   "golden": "stored",
-  "note": "done poster; stored assignment checked on the overlay, every line right"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "east_german_defa-gig": {
   "golden": "stored",
-  "note": "done poster; stored assignment checked on the overlay, every line right"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "etching_engraving-fete": {
   "golden": "stored",
-  "note": "done poster; stored assignment checked on the overlay, every line right"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "factory_records-gig": {
   "golden": "stored",
-  "note": "done poster; stored assignment checked on the overlay, every line right"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "festival_of_britain-fete": {
   "golden": "stored",
-  "note": "done poster; stored assignment checked on the overlay, every line right"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "festival_of_britain-gig": {
   "golden": "stored",
-  "note": "done poster; stored assignment checked on the overlay, every line right"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "golden_age_travel-gig": {
   "golden": "stored",
-  "note": "done poster; stored assignment checked on the overlay, every line right"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "japanese_minimal_poster-fete": {
   "golden": "stored",
-  "note": "done poster; stored assignment checked on the overlay, every line right"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "low_poly-gig": {
   "golden": "stored",
-  "note": "done poster; stored assignment checked on the overlay, every line right"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "minimalism_art-fete": {
   "golden": "stored",
-  "note": "done poster; stored assignment checked on the overlay, every line right"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "minimalism_art-gig": {
   "golden": "stored",
-  "note": "done poster; stored assignment checked on the overlay, every line right"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "suprematism-fete": {
   "golden": "stored",
-  "note": "done poster; stored assignment checked on the overlay, every line right"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "surrealist-gig": {
   "golden": "stored",
-  "note": "done poster; stored assignment checked on the overlay, every line right"
+  "note": "reviewed by eye with review.py, 2026-09-25"
  },
  "swiss_international-fete": {
   "golden": "stored",
-  "note": "done poster; stored assignment checked on the overlay, every line right"
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "act_up_aids-fete": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "act_up_aids-gig": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "blaxploitation-fete": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "child_paint_pro_typography-gig": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "concrete_art-fete": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "cuban_ospaaal-gig": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "cubist_exhibition-fete": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "de_stijl-gig": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "dnb_fractal_flyer-gig": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "east_german_defa-fete": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "etching_engraving-gig": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "festival_indie_lineup-gig": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "german_expressionist_film-gig": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "glitch_art-fete": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "glitch_art-gig": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "hip_hop_flyer-gig": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "japanese_minimal_poster-gig": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "japonisme-fete": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "japonisme-gig": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "mid_century_modern_graphic-gig": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "mimeograph-fete": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "monochrome_single_accent-fete": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "monochrome_single_accent-gig": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "nasa_worm_modernist-gig": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "orphism-gig": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "penny_dreadful-gig": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "pixel_art-fete": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "pixel_art-gig": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "pop_art-fete": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "push_pin_studios-gig": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "rave_acid_graphics-gig": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "reggae_sound_system-fete": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "risograph-fete": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "stamp_letterpress_modern-fete": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "stamp_letterpress_modern-gig": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "suprematism-gig": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "swiss_international-gig": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "wayfinding_signage-gig": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "wpa_new_deal-fete": {
+  "golden": "stored",
+  "note": "reviewed by eye with review.py, 2026-09-25"
  }
 }
