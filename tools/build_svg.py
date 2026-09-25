@@ -788,6 +788,15 @@ def artwork_svg(spec, sol, workdir, quality=76):
                 if not (tx0 <= xs.start and xs.stop <= tx1
                         and ty0 <= ys.start and ys.stop <= ty1):
                     continue
+                # Only beside a line that was reset: a stray of ITS lettering
+                # sits on its rows. A mark on rows no reset line covers is a
+                # line nothing was reset over -- undetected copy, left as the
+                # original's pixels -- and sweeping it erases that copy
+                # (blaxploitation's "Ferret racing", reggae's list).
+                if not any(sol['lines'][b]['y0'] - 0.5 * sol['lines'][b]['cap'] <= (ys.start + ys.stop) / 2
+                           <= sol['lines'][b]['y1'] + 0.5 * sol['lines'][b]['cap']
+                           for b in used if not sol['lines'][b].get('frame')):
+                    continue
                 # Never bite into something the solver already identified as
                 # artwork: a corner of a circle or bar can pass the size test.
                 if any(not (xs.stop < w0 or xs.start > w1
