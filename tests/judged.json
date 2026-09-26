@@ -50,7 +50,7 @@
  },
  "botanical_scientific-gig": {
   "golden": "stored",
-  "note": "reviewed by eye with review.py, 2026-09-25"
+  "note": "reviewed by eye with review.py, 2026-09-25; fix confirmed by the user, 2026-09-26"
  },
  "child_paint_pro_typography-fete": {
   "golden": "stored",
@@ -58,7 +58,7 @@
  },
  "concrete_art-gig": {
   "golden": "stored",
-  "note": "reviewed by eye with review.py, 2026-09-25"
+  "note": "reviewed by eye with review.py, 2026-09-25; fix confirmed by the user, 2026-09-26"
  },
  "contemporary_editorial-fete": {
   "golden": "stored",
@@ -118,7 +118,7 @@
  },
  "low_poly-gig": {
   "golden": "stored",
-  "note": "reviewed by eye with review.py, 2026-09-25"
+  "note": "reviewed by eye with review.py, 2026-09-25; fix confirmed by the user, 2026-09-26"
  },
  "minimalism_art-fete": {
   "golden": "stored",
@@ -130,11 +130,11 @@
  },
  "suprematism-fete": {
   "golden": "stored",
-  "note": "reviewed by eye with review.py, 2026-09-25"
+  "note": "reviewed by eye with review.py, 2026-09-25; fix confirmed by the user, 2026-09-26"
  },
  "surrealist-gig": {
   "golden": "stored",
-  "note": "reviewed by eye with review.py, 2026-09-25"
+  "note": "reviewed by eye with review.py, 2026-09-25; fix confirmed by the user, 2026-09-26"
  },
  "swiss_international-fete": {
   "golden": "stored",
@@ -166,7 +166,7 @@
  },
  "cubist_exhibition-fete": {
   "golden": "stored",
-  "note": "reviewed by eye with review.py, 2026-09-25"
+  "note": "reviewed by eye with review.py, 2026-09-25; fix confirmed by the user, 2026-09-26"
  },
  "de_stijl-gig": {
   "golden": "stored",
@@ -242,7 +242,7 @@
  },
  "penny_dreadful-gig": {
   "golden": "stored",
-  "note": "reviewed by eye with review.py, 2026-09-25"
+  "note": "reviewed by eye with review.py, 2026-09-25; fix confirmed by the user, 2026-09-26"
  },
  "pixel_art-fete": {
   "golden": "stored",
@@ -270,7 +270,7 @@
  },
  "risograph-fete": {
   "golden": "stored",
-  "note": "reviewed by eye with review.py, 2026-09-25"
+  "note": "reviewed by eye with review.py, 2026-09-25; fix confirmed by the user, 2026-09-26"
  },
  "stamp_letterpress_modern-fete": {
   "golden": "stored",
@@ -295,5 +295,49 @@
  "wpa_new_deal-fete": {
   "golden": "stored",
   "note": "reviewed by eye with review.py, 2026-09-25"
+ },
+ "big_eyes-gig": {
+  "golden": "stored",
+  "note": "converted from skipped; approved by the user in review, 2026-09-26"
+ },
+ "wpa_new_deal-gig": {
+  "golden": "stored",
+  "note": "converted from skipped; approved by the user in review, 2026-09-26"
+ },
+ "y2k_chrome-gig": {
+  "golden": "stored",
+  "note": "converted from skipped; approved by the user in review, 2026-09-26"
+ },
+ "vaporwave-gig": {
+  "golden": "stored",
+  "note": "converted from skipped; approved by the user in review, 2026-09-26"
+ },
+ "synthwave-gig": {
+  "golden": "stored",
+  "note": "converted from skipped; approved by the user in review, 2026-09-26"
+ },
+ "cuban_ospaaal-fete": {
+  "golden": "stored",
+  "note": "converted from skipped; approved by the user in review, 2026-09-26"
+ },
+ "cyanotype-gig": {
+  "golden": "stored",
+  "note": "converted from skipped; approved by the user in review, 2026-09-26"
+ },
+ "hong_kong_cinema-gig": {
+  "golden": "stored",
+  "note": "converted from skipped; approved by the user in review, 2026-09-26"
+ },
+ "streamline_moderne-gig": {
+  "golden": "stored",
+  "note": "converted from skipped; approved by the user in review, 2026-09-26"
+ },
+ "mimeograph-gig": {
+  "golden": "stored",
+  "note": "converted from skipped; approved by the user in review, 2026-09-26"
+ },
+ "zagreb_school_animation-gig": {
+  "golden": "stored",
+  "note": "converted from skipped; approved by the user in review, 2026-09-26"
  }
 }
