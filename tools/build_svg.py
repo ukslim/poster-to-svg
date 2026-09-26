@@ -901,6 +901,19 @@ def artwork_svg(spec, sol, workdir, quality=76):
                            <= sol['lines'][b]['y1'] + 0.5 * sol['lines'][b]['cap']
                            for b in used if not sol['lines'][b].get('frame')):
                     continue
+                # A stray of a reset line's lettering is in that line's colour.
+                # A mark of another colour beside it is part of the design --
+                # a green bullet between the date's two halves (dnb_fractal_flyer).
+                px = arr[sl][lab[sl] == i]
+                beside = [sol['lines'][b] for b in used if not sol['lines'][b].get('frame')
+                          and sol['lines'][b]['y0'] - 0.5 * sol['lines'][b]['cap']
+                          <= (ys.start + ys.stop) / 2
+                          <= sol['lines'][b]['y1'] + 0.5 * sol['lines'][b]['cap']]
+                if len(px) and beside:
+                    ink = np.median(px, 0)
+                    if all(np.abs(ink - np.array([int(L['rgb'][j:j + 2], 16) for j in (1, 3, 5)])).max() > 80
+                           for L in beside):
+                        continue
                 # Never bite into something the solver already identified as
                 # artwork: a corner of a circle or bar can pass the size test.
                 if any(not (xs.stop < w0 or xs.start > w1

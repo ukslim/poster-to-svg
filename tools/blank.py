@@ -112,14 +112,23 @@ def text_ink_mask(img_path, lines=None, **opts):
             # is never inside its box: it is too small to be kept as a glyph,
             # so the box ends at the last letter and the stop sits just past
             # it -- printing twice, "welcome..". Reach a little past the end.
-            reach = int(round(0.6 * ln['cap']))
+            # Tracked type spaces its punctuation as it spaces its letters, so
+            # the reach grows by the measured tracking.
+            reach = int(round(0.6 * ln['cap'] + (ln.get('track') or 0)))
+            # A line set in pieces on one row (a date broken round a bullet)
+            # has its punctuation in the gaps between the pieces too: reach on
+            # to the next piece of the same colour on this row, if it is near.
+            nxt = [o['left'] for o in here_lines if o is not ln and o['left'] > ln['right']
+                   and o['left'] - ln['right'] < 3 * ln['cap']
+                   and min(o['y1'], ln['y1']) - max(o['y0'], ln['y0']) > 0.5 * ln['cap']]
+            right = max(ln['right'] + reach, min(nxt) if nxt else 0)
             for i, sl in enumerate(boxes):
                 if sl is None or sizes[i] > 0.25 * ln['cap'] ** 2:
                     continue
                 ys, xs = sl
                 if (ys.start >= ln['y0'] and ys.stop <= ln['y1'] + 1
                         and xs.start >= ln['left']
-                        and xs.stop <= ln['right'] + 1 + reach):
+                        and xs.stop <= right + 1):
                     here[sl] |= lab[sl] == i + 1
             # Grow each line's ink in proportion to its size. Antialiasing
             # spreads further round cap-100 display type than round 15px small
