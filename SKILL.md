@@ -58,7 +58,8 @@ measurement is wrong: fix it or record the poster as flawed.
    ```
    Knobs persist in the solution, so a re-run repeats them (`--fresh` drops
    them); a knob on the command line replaces only the stored entries for the
-   lines it names. `NOT BUILT` means the copy is on the wrong lines: back to step 2.
+   lines it names. Before the first publish, the last run's knobs (from its
+   work directory, --resolve-only included) are carried the same way. `NOT BUILT` means the copy is on the wrong lines: back to step 2.
    Done when: it prints `look at: .../look.png`.
 
 5. **Look at `look.png`**: the assignment, the rebuild beside it, and a

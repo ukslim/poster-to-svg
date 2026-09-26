@@ -414,7 +414,18 @@ def unify_siblings(placed, faces):
         if stem and stem != p['key']:
             fam.setdefault((p['group'], stem), []).append(p)
     for (gname, _), members in fam.items():
-        if len(members) < 3:
+        # A list is three or more lines, however many pieces each is set in
+        # (footer0 set in two colours is one line, not two list items)...
+        if len({m['key'] for m in members}) < 3:
+            continue
+        # ...and a list the original set at one size. A member drawn much
+        # bigger or smaller than the rest is not an item of it: raised to
+        # its neighbours' size, push_pin's small "Organised by" footer came
+        # out at the size of the big "FREE ENTRY" line above it.
+        caps = sorted(m['cap'] for m in members)
+        cmed = caps[len(caps) // 2]
+        members = [m for m in members if 0.8 * cmed <= m['cap'] <= 1.25 * cmed]
+        if len({m['key'] for m in members}) < 3:
             continue
         sizes = sorted(m['size'] for m in members)
         med = sizes[len(sizes) // 2]
@@ -1078,7 +1089,15 @@ def build_file(sol, out, faces=(), artwork='none', workdir='/tmp', title=''):
     for key in [k for k in overrides if k not in sol['groups']]:
         home = next((g for g, v in sol['groups'].items() if key in v['lines']), None)
         if home is None:
-            raise SystemExit(f'--face {key}=...: no face group or copy line {key!r}')
+            # Group names follow the measurement: a line kept as art, or a
+            # case decided, regroups the rest and a stored group name can
+            # vanish. Say so and carry on; meta.py --reviewed refuses a
+            # poster with a group whose face nobody chose, so nothing ships
+            # unexamined.
+            print(f'  ! --face {key}=...: no face group or copy line {key!r} now '
+                  f'(groups: {", ".join(sol["groups"])}); ignored')
+            del overrides[key]
+            continue
         parent = sol['groups'][home]
         parent['lines'] = [k for k in parent['lines'] if k != key]
         sol['groups'][key] = dict(parent, lines=[key],

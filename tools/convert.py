@@ -207,6 +207,13 @@ def main():
     stored = None
     if os.path.exists(site_soln):
         stored = json.load(open(site_soln)).get('knobs')
+    elif os.path.exists(soln):
+        # Not published yet: carry the knobs of the last run here (typically
+        # a --resolve-only), so a poster being worked up does not forget its
+        # --art boxes and assignments between one call and the next.
+        stored = json.load(open(soln)).get('knobs')
+        if stored and not a.fresh:
+            print('knobs carried from the last unpublished run (--fresh to drop them)')
     k = knobs(a, stored)
     if stored and not a.fresh:
         changed = {n: v for n, v in k.items() if v != DEFAULTS[n]}
