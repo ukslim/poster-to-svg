@@ -43,14 +43,39 @@ def knobs(a, stored):
         v = getattr(a, n)
         if v is not None and v != []:
             k[n] = v
-    # --assign names lines, so it replaces the stored pins for those lines
-    # only; replacing the whole list sent every unnamed line back to the
-    # aligner, which put a list a band out of step (screenprint_pop).
-    if a.assign and stored and not a.fresh:
-        said = {x.partition('=')[0].strip() for x in a.assign}
-        k['assign'] = [x for x in stored.get('assign') or []
-                       if x.partition('=')[0].strip() not in said] + list(a.assign)
+    # A knob given on the command line adds to the stored ones, replacing
+    # only the entries for the lines (or boxes) it names. Replacing the whole
+    # list silently dropped the rest: --assign for one line sent every other
+    # line back to the aligner (screenprint_pop), and --art for the presenter
+    # un-kept a headline, which was then set tiny over its own pixels
+    # (y2k_chrome). --fresh still drops everything stored.
+    if stored and not a.fresh:
+        for n, key in MERGE.items():
+            given = getattr(a, n)
+            if not given:
+                continue
+            said = {key(x) for x in given}
+            k[n] = [x for x in stored.get(n) or [] if key(x) not in said] + list(given)
     return k
+
+
+def _line(x):
+    return x.partition('=')[0].strip()
+
+
+def _lines_at(x):
+    """'date,venue@X0,Y0,X1,Y1[@...]' -> the lines, as one key."""
+    return frozenset(k.strip() for k in x.partition('@')[0].split(','))
+
+
+# How each list knob's entries are told apart when merging (see knobs()).
+MERGE = dict(
+    assign=_line, face=_line, character=_line, case=_line, align=_line,
+    track=_line, shadow=_line, fit=lambda x: x.strip(),
+    # a line's own colour, and each run of words in it, are separate entries
+    fill=lambda x: (_line(x), x.partition('=')[2].partition('@')[2]),
+    art=_lines_at, tilted=_lines_at,
+    exclude=lambda x: x, knockout=lambda x: x)
 
 
 def face_by_name(spec, s):

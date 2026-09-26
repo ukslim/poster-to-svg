@@ -4,6 +4,12 @@
     python3 overlay.py swiss_international-fete            # current measurement
     python3 overlay.py risograph-gig --vs-solution         # stored | current, side by side
     python3 overlay.py a-gig b-fete c-gig -o sheet.png     # several in one sheet
+    python3 overlay.py y2k_chrome-gig --work               # the last convert.py run
+
+--work draws the solution convert.py last wrote to its work directory, with
+every knob that run was given (art boxes, excludes, hand assignments), even
+with --resolve-only and even for a poster that has no stored solution yet.
+Without it the poster is measured afresh with the stored knobs only.
 
 Each band is numbered (#N) and, if assigned, boxed and labelled with its copy
 key; bands nobody was assigned are shaded grey with '#N?'. The numbers are what
@@ -131,6 +137,16 @@ def current(name):
     return src, m['lines'], assigned, f'now {cost:.2f}'
 
 
+def work(name):
+    """The solution the last convert.py run wrote to its work directory."""
+    style, event = name[:-3].rsplit('-', 1)
+    p = f'/tmp/p2svg-{style}-{event}/solution.json'
+    if not os.path.exists(p):
+        raise SystemExit(f'no work solution for {name[:-3]}: run convert.py first')
+    s = json.load(open(p))
+    return s, f"work {s.get('alignment_cost', 0):.2f}"
+
+
 def stored(name):
     s = json.load(open(os.path.join(poster_site.solutions(), name + '.json')))
     return s['image'] if os.path.exists(s['image']) else os.path.join(
@@ -162,6 +178,8 @@ def main():
                     help='stored assignment beside the current one')
     ap.add_argument('--vs-baseline', action='store_true',
                     help='the regress.py baseline beside the current one')
+    ap.add_argument('--work', action='store_true',
+                    help="draw the last convert.py run's solution, with all its knobs")
     ap.add_argument('--grid', action='store_true',
                     help='coordinate lines every 100px, to read --art/--exclude boxes off')
     ap.add_argument('--width', type=int, default=380)
@@ -175,6 +193,15 @@ def main():
             if flag:
                 src, L, A, t = fn(name)
                 panels.append(panel(src, L, A, a.width, f'{short}  {t}', missing_keys(name, A)))
+        if a.work:
+            s, t = work(name)
+            art = s.get('art') or []
+            kept = {k for x in art for k in x['keys']}
+            panels.append(panel(s['image'], s['lines'], s['assigned'], a.width,
+                                f'{short}  {t}',
+                                [k for k in missing_keys(name, s['assigned']) if k not in kept],
+                                art=art, grid=a.grid))
+            continue
         src, L, A, t = current(name)
         soln = os.path.join(poster_site.solutions(), name + '.json')
         art = json.load(open(soln)).get('art') if os.path.exists(soln) else None

@@ -57,7 +57,8 @@ measurement is wrong: fix it or record the poster as flawed.
    python3 $S/convert.py {style} {event} --character ... --assign ...
    ```
    Knobs persist in the solution, so a re-run repeats them (`--fresh` drops
-   them). `NOT BUILT` means the copy is on the wrong lines: back to step 2.
+   them); a knob on the command line replaces only the stored entries for the
+   lines it names. `NOT BUILT` means the copy is on the wrong lines: back to step 2.
    Done when: it prints `look at: .../look.png`.
 
 5. **Look at `look.png`**: the assignment, the rebuild beside it, and a
@@ -173,7 +174,7 @@ the generator imitated and is never shipped.
 | tool | does |
 |---|---|
 | `convert.py` | solve, build, check, publish one poster; writes `look.png` |
-| `overlay.py` | the band assignment drawn on the poster (`--grid` for coordinates; `--vs-solution`, `--vs-baseline`) |
+| `overlay.py` | the band assignment drawn on the poster (`--grid` for coordinates; `--work` for the last convert.py run with all its knobs; `--vs-solution`, `--vs-baseline`) |
 | `sheet.py` | contact sheet: the original line beside the shortlist |
 | `review.py` | the type review: each face group as a full-width strip, original over rebuild |
 | `character.py` | `vocab`; `blocks` (every line cut out); `rank BRIEF` |
