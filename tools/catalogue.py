@@ -11,7 +11,8 @@ ranking needs -- never the font itself:
   metrics   advance and ink bounds of every character the posters' copy uses,
             so a line's natural width at any size is arithmetic
   features  per-character width and height over cap, stroke weight and
-            contrast, slant, squareness (typefeatures.py): measured the same
+            contrast, slant, squareness, corner roundness and bend
+            (typefeatures.py): measured the same
             way as on the poster's own glyph crops, so the two compare
   tags      Google's own classification (/Sans/Grotesque, /Serif/Didone,
             /Theme/Pixel ...) and expressive scores (/Expressive/Playful ...)
@@ -37,8 +38,9 @@ TAGS_URL = 'https://raw.githubusercontent.com/google/fonts/main/tags/all/familie
 # Every character the gig and fete copy can set, in either case.
 SPECIMEN = (" &',./0123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZ"
             "abcdefghijklmnopqrstuvwxyz£Êê–’-!?")
-# Rendered to measure weight, contrast, slant and squareness.
-RENDERED = 'HEOIRSaegnodl'
+# Rendered to measure weight, contrast, slant, squareness and corner shape
+# (C D G Q U P: typefeatures.CORNERS).
+RENDERED = 'HEOIRSaegnodlCDGQUP'
 TAG_PREFIXES = ('/Sans/', '/Serif/', '/Slab/', '/Script/', '/Monospace/',
                 '/Theme/', '/Expressive/')
 
@@ -99,7 +101,7 @@ def describe(path, index=None):
                       if m[3] > m[1]}
     feat['height'] = {ch: round((m[4] - m[2]) / cap, 4) for ch, m in metrics.items()
                       if m[4] > m[2]}
-    for k in ('weight', 'contrast', 'square'):
+    for k in ('weight', 'contrast', 'square', 'corner', 'bend'):
         if feat.get(k) is not None:
             feat[k] = round(feat[k], 4)
     return dict(upem=upem, cap=cap, metrics=metrics, missing=''.join(missing),
