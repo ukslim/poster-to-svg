@@ -358,12 +358,14 @@ def split_text(text, bands, lines):
     # the ones that touch, and the error is shared by every band alike.
     ems = np.array([eff_width(lines[b]) / max(1, lines[b]['cap']) for b in bands], float)
     widths = np.array([lines[b].get('n_runs') or e for b, e in zip(bands, ems)], float)
-    # ...unless the counts disagree with the widths: runs per em should be
-    # about the same on every row of one line. A row whose letters break into
-    # pieces (textured or two-tone ink) counts double, and splitting by that
+    # ...unless the counts are not counting letters. We know the text, so
+    # the runs across the rows should roughly total its letters; far more
+    # means letters breaking into pieces (textured or two-tone ink), which
     # put 19 letters on one row of push_pin's venue and 32 on the other.
-    dens = widths / np.maximum(ems, 1e-6)
-    if dens.max() > 1.5 * dens.min():
+    # (Comparing rows with each other instead misfires on two sizes of
+    # italic, where runs per em legitimately differ by half.)
+    letters = sum(1 for ch in text if not ch.isspace())
+    if all(lines[b].get('n_runs') for b in bands) and widths.sum() > 1.3 * letters:
         widths = ems
     target = widths / widths.sum()
 

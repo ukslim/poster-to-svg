@@ -912,18 +912,26 @@ def artwork_svg(spec, sol, workdir, quality=76):
                            <= sol['lines'][b]['y1'] + 0.5 * sol['lines'][b]['cap']
                            for b in used if not sol['lines'][b].get('frame')):
                     continue
-                # A stray of a reset line's lettering is in that line's colour.
-                # A mark of another colour beside it is part of the design --
-                # a green bullet between the date's two halves (dnb_fractal_flyer).
+                # A small solid mark of a colour none of the reset lines beside
+                # it are set in is part of the design, not a stray letter: a
+                # green bullet between a date's two halves (dnb_fractal_flyer).
+                # Only a compact blob, well under a letter's height: letters
+                # in an accent colour (a blue FLOOD) and glitch fringes are
+                # not that, and are still swept.
                 px = arr[sl][lab[sl] == i]
                 beside = [sol['lines'][b] for b in used if not sol['lines'][b].get('frame')
                           and sol['lines'][b]['y0'] - 0.5 * sol['lines'][b]['cap']
                           <= (ys.start + ys.stop) / 2
                           <= sol['lines'][b]['y1'] + 0.5 * sol['lines'][b]['cap']]
-                if len(px) and beside:
+                blob = (0.6 <= bw / max(bh, 1) <= 1.6 and bh < 0.7 * min(L['cap'] for L in beside or [{'cap': 1e9}])
+                        and (lab[sl] == i).mean() > 0.6)
+                if len(px) and beside and blob:
                     ink = np.median(px, 0)
-                    if all(np.abs(ink - np.array([int(L['rgb'][j:j + 2], 16) for j in (1, 3, 5)])).max() > 80
-                           for L in beside):
+                    drawn = [L['rgb'] for L in beside] + [
+                        f.partition('=')[2].partition('@')[0]
+                        for f in (sol.get('knobs') or {}).get('fill') or []]
+                    if all(np.abs(ink - np.array([int(c[j:j + 2], 16) for j in (1, 3, 5)])).max() > 80
+                           for c in drawn if c.startswith('#') and len(c) == 7):
                         continue
                 # Never bite into something the solver already identified as
                 # artwork: a corner of a circle or bar can pass the size test.
