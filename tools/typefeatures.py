@@ -267,6 +267,15 @@ def features(glyphs):
 
 
 # How much each difference costs. Tuned against bench_fonts.py.
+# corner and bend (corner_shape) are measured and stored but carry no weight.
+# Tested 2026-09-27: on bench_fonts (60 faces) no weight beat the baseline
+# (top-1 49%; corner=8 dropped it to 41%), and on the 203 face groups the
+# user approved, no weighting clearly lifted the approved family's rank
+# (mean log-rank 2.68; best 2.65 with bend=5, within noise; corner=8
+# worsened it to 3.15, or 2.82 counting corners on display sizes only).
+# They separate faces cleanly in isolation -- chamfers ~0 bend, arcs ~0.2;
+# Orbitron corner 0.28, Jost 0.94 -- but other features already carry most
+# of it, and on a poster the approved face is often not the corner match.
 WEIGHTS = dict(width=3.0, height=2.0, weight=12.0, contrast=1.5, slant=0.25, square=6.0,
                corner=0.0, bend=0.0)
 import os as _os
@@ -299,9 +308,11 @@ def distance(a, b, w=WEIGHTS):
     trust_w = 1.0 if cap is None else min(1.0, max(0.3, (cap - 16) / 48))
     for k in ('weight', 'contrast', 'square', 'corner', 'bend'):
         if a.get(k) is not None and b.get(k) is not None and w.get(k):
-            # corners, like weight, are a few pixels on small type
-            scale = (trust if k == 'contrast' else trust_w if k in ('weight', 'corner', 'bend')
-                     else 1.0)
+            # a corner is a few pixels on small type: count it only on
+            # display lettering, in full from an 80px cap
+            trust_c = 1.0 if cap is None else min(1.0, max(0.0, (cap - 40) / 40))
+            scale = (trust if k == 'contrast' else trust_w if k == 'weight'
+                     else trust_c if k in ('corner', 'bend') else 1.0)
             parts[k] = w[k] * abs(a[k] - b[k]) * scale
     if a.get('slant') is not None and b.get('slant') is not None:
         parts['slant'] = w['slant'] * abs(a['slant'] - b['slant'])
