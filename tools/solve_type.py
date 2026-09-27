@@ -695,26 +695,36 @@ def drop_absent_punctuation(assigned, lines, arr):
 
     The prompt's copy says "Attractions:" and "Free entry. All welcome.";
     the image model often leaves the colon or the last stop out where the
-    layout already does its work (a label set bold above its list). Setting
-    the copy verbatim put it back. Judged only at the end of a line, where
-    a missing mark leaves clean ground; a missing mark inside a line cannot
-    be told from spacing. -> {key: dropped characters}."""
+    layout already does its work (a label set bold above its list, a bullet
+    between two coloured halves). Setting the copy verbatim put it back.
+    Judged at the end of each piece a line is set in -- a wrapped row, or a
+    coloured half of one row -- where a missing mark leaves clean ground; a
+    mark inside a piece cannot be told from spacing. -> {key: dropped}."""
     dropped = {}
     for x in assigned:
-        text = x['text'].rstrip()
-        if not text or text[-1] not in TRAILING:
+        if not x['text'].rstrip() or not any(ch in TRAILING for ch in x['text']):
             continue
-        # the band holding the line's end: its bottom row, rightmost piece
-        # (the list's order is not always reading order)
-        rows = sorted(x['bands'], key=lambda i: (lines[i]['baseline'], lines[i]['left']))
-        low = [i for i in rows if lines[i]['baseline'] >= lines[rows[-1]]['baseline']
-               - 0.5 * lines[rows[-1]]['cap']]
-        b = lines[max(low, key=lambda i: lines[i]['right'])]
-        if trailing_mark(arr, b) is False:
-            cut = text[len(text.rstrip(TRAILING)):]
-            x['text'] = text.rstrip(TRAILING)
-            if x.get('parts'):
-                x['parts'] = x['parts'][:-1] + [x['parts'][-1].rstrip().rstrip(TRAILING)]
+        parts = x.get('parts') or split_text(x['text'], x['bands'], lines) or [x['text']]
+        if len(parts) != len(x['bands']):
+            # the text is not divided over the bands: only its very end
+            parts, bands = [x['text']], [max(x['bands'], key=lambda i: (
+                lines[i]['baseline'] // max(1, lines[i]['cap']), lines[i]['right']))]
+        else:
+            bands = x['bands']
+        cut = ''
+        out = []
+        for part, bi in zip(parts, bands):
+            p = part.rstrip()
+            if p and p[-1] in TRAILING and trailing_mark(arr, lines[bi]) is False:
+                cut += p[len(p.rstrip(TRAILING)):]
+                p = p.rstrip(TRAILING)
+            out.append(p)
+        if cut:
+            if len(out) == len(x['bands']):
+                x['parts'] = out
+                x['text'] = ' '.join(out)
+            else:
+                x['text'] = out[0]
             dropped[x['key']] = cut
             x['dropped'] = cut
     return dropped
