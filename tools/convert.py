@@ -28,7 +28,7 @@ DEFAULTS = dict(artwork='mask', face=[], solid_radius=24, rule_length=160,
                 rule_thick=5, min_glyphs=3, contrast=40, window=61,
                 wrap_cap_ratio=1.3, exclude=[], knockout=[], assign=[], character=[],
                 case=[], tilted=[], art=[], align=[], track=[], fill=[], shadow=[],
-                fit=[])
+                fit=[], text=[])
 # Ambiguities that mean the copy is on the wrong lines. Building then only
 # produces a confident-looking wrong poster.
 BLOCKING = ('weak_alignment', 'no_alignment')
@@ -70,7 +70,7 @@ def _lines_at(x):
 
 # How each list knob's entries are told apart when merging (see knobs()).
 MERGE = dict(
-    assign=_line, face=_line, character=_line, case=_line, align=_line,
+    assign=_line, face=_line, character=_line, case=_line, align=_line, text=_line,
     track=_line, shadow=_line, fit=lambda x: x.strip(),
     # a line's own colour, and each run of words in it, are separate entries
     fill=lambda x: (_line(x), x.partition('=')[2].partition('@')[2]),
@@ -185,6 +185,9 @@ def main():
     ap.add_argument('--fit', action='append', default=[], metavar='KEY',
                     help="set this line no wider than the original's, where it must stay "
                          'inside a frame and no narrower cut of its face exists')
+    ap.add_argument('--text', action='append', default=[], metavar='KEY=TEXT',
+                    help='what the poster actually prints for a copy line, where it '
+                         'differs from the copy: --text attractions_label=Attractions')
     ap.add_argument('--keep', type=int, default=80)
     ap.add_argument('--fresh', action='store_true',
                     help='ignore the knobs stored with an earlier solution')
@@ -227,6 +230,7 @@ def main():
               wrap_cap_ratio=k['wrap_cap_ratio'], assign=k['assign'],
               character=dict(c.split('=', 1) for c in k['character']),
               case=dict(c.split('=', 1) for c in k['case']), tilted=k['tilted'], art=k['art'],
+              text=dict(t.split('=', 1) for t in k['text']),
               exclude=[tuple(int(v) for v in x.split(',')) for x in k['exclude']])
     # Stored as points, not band numbers: re-measurement may renumber bands.
     k['assign'] = s['assign_points']

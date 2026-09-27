@@ -637,9 +637,98 @@ def briefs_for(kind, grp, character):
     return parse_brief(', '.join(specs)) if specs else None
 
 
+TRAILING = ':.,;'
+
+
+def trailing_mark(arr, b):
+    """Is there a punctuation mark just after the last letter of band `b`?
+
+    True for a small mark (a colon's dots, a stop, a comma) within a letter's
+    reach of the last letter; False for clean ground there; None when it
+    cannot tell -- no letters found, no contrast, or letter-sized ink beyond
+    the last letter (the band may be cut short). Callers drop punctuation
+    only on False, so every doubt keeps the copy as written."""
+    from scipy import ndimage
+    from linemask import line_mask
+    from tilt import pixels
+    cap = max(1, b['cap'])
+    runs = [r for r in (b.get('runs') or []) if (r[3] - r[2] + 1) >= 0.45 * cap]
+    if not runs:
+        return None
+    px = pixels(arr, b)
+    h, w = px.shape[:2]
+    lr = max(runs, key=lambda r: r[1])
+    if lr[1] - lr[0] + 1 > 1.5 * cap:
+        return None     # not one letter: a word run together (a neon glow)
+    last = lr[1]
+    # A mark fused to the last letter (a glow or a tight setting joins
+    # "midnight" to its stop): the letter's last columns then hold ink only
+    # low in the line, clear of its top third. Say so -- a round letter can
+    # look the same, but that only keeps the copy as written.
+    lm, _ = line_mask(px, (lr[0], lr[2], lr[1], lr[3]), b['rgb'], b.get('ground'))
+    if lm is not None and lm.shape[1] >= 4:
+        top = int(0.3 * lm.shape[0])
+        tail = lm[:, -max(2, lm.shape[1] // 6):]
+        if tail.any() and not tail[:top].any():
+            return True
+    x0, x1 = last + 2, min(w - 1, last + int(0.8 * cap + (b.get('track') or 0)))
+    y0, y1 = max(0, b['y0'] - int(0.1 * cap)), min(h - 1, b['y1'] + int(0.2 * cap))
+    if x1 - x0 < 3:
+        return None
+    m, _ = line_mask(px, (x0, y0, x1, y1), b['rgb'], b.get('ground'))
+    if m is None:
+        return None
+    lab, n = ndimage.label(m)
+    marks = False
+    for i, sl in enumerate(ndimage.find_objects(lab), start=1):
+        area = int((lab[sl] == i).sum())
+        hh = sl[0].stop - sl[0].start
+        if hh >= 0.5 * cap:
+            return None                     # another letter, or artwork
+        if area >= max(3, (0.05 * cap) ** 2):
+            marks = True
+    return marks
+
+
+def drop_absent_punctuation(assigned, lines, arr):
+    """The copy's trailing punctuation, where the poster did not print it.
+
+    The prompt's copy says "Attractions:" and "Free entry. All welcome.";
+    the image model often leaves the colon or the last stop out where the
+    layout already does its work (a label set bold above its list). Setting
+    the copy verbatim put it back. Judged only at the end of a line, where
+    a missing mark leaves clean ground; a missing mark inside a line cannot
+    be told from spacing. -> {key: dropped characters}."""
+    dropped = {}
+    for x in assigned:
+        text = x['text'].rstrip()
+        if not text or text[-1] not in TRAILING:
+            continue
+        # the band holding the line's end: its bottom row, rightmost piece
+        # (the list's order is not always reading order)
+        rows = sorted(x['bands'], key=lambda i: (lines[i]['baseline'], lines[i]['left']))
+        low = [i for i in rows if lines[i]['baseline'] >= lines[rows[-1]]['baseline']
+               - 0.5 * lines[rows[-1]]['cap']]
+        b = lines[max(low, key=lambda i: lines[i]['right'])]
+        if trailing_mark(arr, b) is False:
+            cut = text[len(text.rstrip(TRAILING)):]
+            x['text'] = text.rstrip(TRAILING)
+            if x.get('parts'):
+                x['parts'] = x['parts'][:-1] + [x['parts'][-1].rstrip().rstrip(TRAILING)]
+            dropped[x['key']] = cut
+            x['dropped'] = cut
+    return dropped
+
+
 def solve(image, event, keep=SHAPE_POOL, wrap_cap_ratio=1.3, assign=None,
-          character=None, case=None, tilted=None, art=None, **measure_opts):
+          character=None, case=None, tilted=None, art=None, text=None, **measure_opts):
     copy = load_copy(event)
+    # --text KEY=TEXT: what the poster actually prints, where it differs
+    # from the copy (a word left out, a line reworded)
+    for k, t in (text or {}).items():
+        for c in copy:
+            if c['key'] == k:
+                c['text'] = t
     specs = [parse_tilt(t) for t in (tilted or [])]
     tilted_keys = {k for keys, _, _ in specs for k in keys}
     # Lettering that cannot be reset -- drawn, painted, multicoloured, 3D, on
@@ -748,6 +837,14 @@ def solve(image, event, keep=SHAPE_POOL, wrap_cap_ratio=1.3, assign=None,
             x['text'] = ' '.join(parts)
             x['parts'] = parts
             x['upper'] = 'partly'
+
+    # ...and set its punctuation as it prints it, before any face is scored
+    # against it (a colon that is not there is width the ranking must not
+    # look for)
+    dropped = drop_absent_punctuation(
+        [x for x in assigned if x['key'] not in (text or {})], m['lines'], a)
+    if dropped:
+        note += '; not printed: ' + ', '.join(f'{k} {v!r}' for k, v in dropped.items())
 
     groups, ambiguities = {}, []
 

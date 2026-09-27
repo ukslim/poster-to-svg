@@ -114,7 +114,12 @@ def text_ink_mask(img_path, lines=None, **opts):
             # it -- printing twice, "welcome..". Reach a little past the end.
             # Tracked type spaces its punctuation as it spaces its letters, so
             # the reach grows by the measured tracking.
-            reach = int(round(0.6 * ln['cap'] + (ln.get('track') or 0)))
+            # (and by the letters' own spacing, which a tracked piece too short
+            # to measure tracking on still shows: pixel_art's wide-set footer)
+            rs = sorted(ln.get('runs') or [], key=lambda r: r[0])
+            gaps = [max(0, b2[0] - a2[1]) for a2, b2 in zip(rs, rs[1:])]
+            gap = float(np.median(gaps)) if gaps else 0.0
+            reach = int(round(0.6 * ln['cap'] + max(ln.get('track') or 0, gap)))
             # A line set in pieces on one row (a date broken round a bullet)
             # has its punctuation in the gaps between the pieces too: reach on
             # to the next piece of the same colour on this row, if it is near.

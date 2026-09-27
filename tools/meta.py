@@ -124,8 +124,8 @@ def _faces(svg, sol=None):
         hit = (next(((f, st) for sq, f, st in known if st is not None and sq == css), None)
                or next(((f, st) for sq, f, st in known if st is not None
                         and css.startswith(sq) and css[len(sq):].isdigit()), None)
-               or next(((f, css[len(sq):] or None) for sq, f, st in known
-                        if st is None and css.startswith(sq)), None))
+               or next(((f, re.sub(r'(\d)([a-z])', r'\1 \2', css[len(sq):]) or None)
+                         for sq, f, st in known if st is None and css.startswith(sq)), None))
         if hit is None:
             try:
                 names = TTFont(io.BytesIO(base64.b64decode(b64)))['name']
