@@ -211,6 +211,25 @@ def measure_system(job):
                  embed=False, source='system', path=path, index=index, **d)], []
 
 
+def _key(r):
+    return (r['family'], r['weight'], bool(r.get('italic')), r.get('wdth'),
+            r.get('source'), r.get('path'), r.get('index'))
+
+
+def stable_order(records):
+    """`records` in the existing catalogue's order; styles it lacks after
+    them, sorted, so the same inputs always give the same list."""
+    try:
+        old = json.load(open(CATALOGUE))['styles']
+    except (OSError, ValueError, KeyError):
+        old = []
+    pos = {_key(r): i for i, r in enumerate(old)}
+    known = sorted((r for r in records if _key(r) in pos), key=lambda r: pos[_key(r)])
+    new = sorted((r for r in records if _key(r) not in pos),
+                 key=lambda r: tuple(str(v) for v in _key(r)))
+    return known + new
+
+
 def build(limit=None, jobs=10):
     from fontfetch import http
     meta_raw = http(META_URL).decode()
@@ -233,6 +252,12 @@ def build(limit=None, jobs=10):
             records += recs
             errors += errs
     os.makedirs(FONTS, exist_ok=True)
+    # Keep the order of the catalogue being replaced, new styles after it.
+    # The styles are measured in parallel and finish in any order, and the
+    # round-trip suite and bench_fonts draw their faces from this list by
+    # seeded position: a reshuffle alone swapped every synthetic poster's
+    # fonts and made the suite look 20 faces worse with nothing changed.
+    records = stable_order(records)
     json.dump({'specimen': SPECIMEN, 'styles': records}, open(CATALOGUE, 'w'),
               separators=(',', ':'))
     print(f'\n{len(records)} styles ({sum(1 for r in records if r["embed"])} '
