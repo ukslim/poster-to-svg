@@ -42,6 +42,43 @@ def tile(img, caption, h):
     return out
 
 
+def corner_note(feat):
+    """' corner 0.29 bend 0.17' from a features dict, for a caption: how
+    round a face's corners are (1 circle, 0 square) and whether they are
+    curves (~0.2) or straight cuts (~0). An aid to the eye, not a score."""
+    if not feat or feat.get('corner') is None:
+        return ''
+    b = feat.get('bend')
+    return f"  corner {feat['corner']:.2f}" + (f" bend {b:.2f}" if b is not None else '')
+
+
+def _record_features(c):
+    """The catalogue's measured features for candidate `c`, if found."""
+    import catalogue
+    italic = 'italic' in (c.get('sub') or '').lower()
+    for r in catalogue.load():
+        if (r['family'] == c['family'] and r['weight'] == c['weight']
+                and bool(r.get('italic')) == italic):
+            return r.get('features')
+    return None
+
+
+def _group_features(sol, g, im):
+    """The poster's features for a group: stored with the solution, or
+    measured now from its glyph crops (solutions made before a feature)."""
+    f = g.get('features') or {}
+    if f.get('corner') is not None:
+        return f
+    try:
+        import numpy as np
+        from solve_type import glyph_crops, group_features
+        grp = [a for a in sol['assigned'] if a['key'] in g['lines']]
+        arr = np.array(im).astype(int)
+        return group_features(grp, sol['lines'], arr, glyph_crops(grp, sol['lines'], arr))
+    except Exception:
+        return f
+
+
 def group_sheet(sol, gname, n=6, extra=()):
     """`extra`: catalogue faces ("Family:weight") shown after the shortlist,
     for a face the ranking never considered."""
@@ -68,7 +105,8 @@ def group_sheet(sol, gname, n=6, extra=()):
     orig = im.crop((max(0, b['left'] - pad), max(0, b['y0'] - pad),
                     min(im.width, b['right'] + pad), min(im.height, b['y1'] + pad)))
     h = 90 if b['cap'] > 40 else 60
-    tiles = [tile(orig, f"[{gname}] original, cap {b['cap']}: {text[:50]}", h)]
+    tiles = [tile(orig, f"[{gname}] original, cap {b['cap']}: {text[:40]}"
+                        + corner_note(_group_features(sol, g, im)), h)]
     ink = tuple(int(b['rgb'][i:i + 2], 16) for i in (1, 3, 5))
     ground = b.get('ground') or sol['paper']
     ground = tuple(int(ground[i:i + 2], 16) for i in (1, 3, 5))
@@ -87,7 +125,8 @@ def group_sheet(sol, gname, n=6, extra=()):
         img = Image.new('RGB', (bb[2] - bb[0] + 2 * pad, orig.height), ground)
         ImageDraw.Draw(img).text((pad - bb[0], pad + b['baseline'] - b['y0']), text,
                                  font=f, fill=ink, anchor='ls')
-        cap = f"{i} {c['family']} {c['sub']}{'' if c['embed'] else '  [id-only]'}"
+        cap = (f"{i} {c['family']} {c['sub']}{'' if c['embed'] else '  [id-only]'}"
+               + corner_note(_record_features(c)))
         tiles.append(tile(img, cap, h))
     sheet = Image.new('RGB', (W, sum(t.height + 4 for t in tiles)), '#DDDDDD')
     y = 0

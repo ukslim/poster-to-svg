@@ -176,7 +176,7 @@ the generator imitated and is never shipped.
 |---|---|
 | `convert.py` | solve, build, check, publish one poster; writes `look.png` |
 | `overlay.py` | the band assignment drawn on the poster (`--grid` for coordinates; `--work` for the last convert.py run with all its knobs; `--vs-solution`, `--vs-baseline`) |
-| `sheet.py` | contact sheet: the original line beside the shortlist |
+| `sheet.py` | contact sheet: the original line beside the shortlist (`--try` any catalogue face); captions give corner roundness (1 circle, 0 square) and bend (~0.2 curve, ~0 chamfer) to check a face's corners against the original's by eye |
 | `review.py` | the type review: each face group as a full-width strip, original over rebuild |
 | `character.py` | `vocab`; `blocks` (every line cut out); `rank BRIEF` |
 | `audit.py` | a finished SVG checked line by line against the original's intent |
