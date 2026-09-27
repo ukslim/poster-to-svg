@@ -38,9 +38,13 @@ TAGS_URL = 'https://raw.githubusercontent.com/google/fonts/main/tags/all/familie
 # Every character the gig and fete copy can set, in either case.
 SPECIMEN = (" &',./0123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZ"
             "abcdefghijklmnopqrstuvwxyz£Êê–’-!?")
-# Rendered to measure weight, contrast, slant, squareness and corner shape
-# (C D G Q U P: typefeatures.CORNERS).
-RENDERED = 'HEOIRSaegnodlCDGQUP'
+# Rendered to measure weight, contrast, slant and squareness. The ranking
+# uses these, so the set is fixed: adding letters shifts every median and
+# re-ranks faces nobody changed.
+RENDERED = 'HEOIRSaegnodl'
+# Rendered as well for corner roundness and bend (typefeatures.CORNERS),
+# which are stored for the contact sheets and do not feed the ranking.
+CORNER_RENDERED = 'OCDGQUP'
 TAG_PREFIXES = ('/Sans/', '/Serif/', '/Slab/', '/Script/', '/Monospace/',
                 '/Theme/', '/Expressive/')
 
@@ -86,15 +90,18 @@ def describe(path, index=None):
     if len(missing) > 12:
         return None
     size = 120 * upem / cap                   # render with a 120px cap
-    glyphs = []
-    for ch in RENDERED:
+    glyphs, extra = [], []
+    for ch in RENDERED + ''.join(c for c in CORNER_RENDERED if c not in RENDERED):
         if ch in metrics and metrics[ch][3] > metrics[ch][1]:
             g = render_glyph(f, ch, size)
             if g is not None:
                 m = g > 128
                 ys, xs = np.nonzero(m)
-                glyphs.append((ch, m[ys.min():ys.max() + 1, xs.min():xs.max() + 1], 120))
+                g = (ch, m[ys.min():ys.max() + 1, xs.min():xs.max() + 1], 120)
+                (glyphs if ch in RENDERED else extra).append(g)
     feat = features(glyphs)
+    corners = features(glyphs + extra)
+    feat['corner'], feat['bend'] = corners.get('corner'), corners.get('bend')
     # Width and height of EVERY character come from the outlines, exactly;
     # rendering is only needed for what outlines do not state directly.
     feat['aspect'] = {ch: round((m[3] - m[1]) / cap, 4) for ch, m in metrics.items()

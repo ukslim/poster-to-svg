@@ -387,7 +387,9 @@ def keep_leading(sized, face, key):
         if marked:
             # the accent may enter the gap, but must clear the row above
             tall = max(face.bounds(c)[3] for c in marked) / face.upem
-            k = min(k, (b2['baseline'] - b1['baseline']) / (tall * s2))
+            # ...and a little short of it: an accent that reaches the row
+            # above's baseline touches its letters (de_stijl's FÊTE)
+            k = min(k, (b2['baseline'] - b1['baseline']) / (tall * s2 + 0.015 * s1))
     if k >= 1.0:
         return sized
     if k < 0.9:
