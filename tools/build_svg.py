@@ -387,7 +387,9 @@ def keep_leading(sized, face, key):
         if marked:
             # the accent may enter the gap, but must clear the row above
             tall = max(face.bounds(c)[3] for c in marked) / face.upem
-            k = min(k, (b2['baseline'] - b1['baseline']) / (tall * s2))
+            # ...and a little short of it: an accent that reaches the row
+            # above's baseline touches its letters (de_stijl's FÊTE)
+            k = min(k, (b2['baseline'] - b1['baseline']) / (tall * s2 + 0.015 * s1))
     if k >= 1.0:
         return sized
     if k < 0.9:
@@ -1114,6 +1116,28 @@ def build_file(sol, out, faces=(), artwork='none', workdir='/tmp', title=''):
         if not parent['lines']:
             del sol['groups'][home]
     chosen = {g: pick(sol['groups'][g], overrides.get(g)) for g in sol['groups']}
+    # Whether a line was squeezed to fit (set it at the size that fits) or
+    # distorted (set it at natural width) is judged by comparing its stroke
+    # weight and width with a face's. The solver judged against its ranking's
+    # top candidate; judge again against the face actually used, so the
+    # answer cannot drift when the ranking does (re-measuring the catalogue
+    # flipped seven posters' lines without any face changing).
+    from solve_type import classify
+    import catalogue
+    for g, c in chosen.items():
+        grp = [a for a in sol['assigned'] if a['key'] in sol['groups'][g]['lines']]
+        sub = (c.get('sub') or '').lower()
+        wdth = re.search(r'wdth(\d+)', sub)
+        wdth = int(wdth.group(1)) if wdth else None
+        rec = next((r for r in catalogue.load() if r['family'] == c['family']
+                    and r['weight'] == c['weight'] and bool(r.get('italic')) == ('italic' in sub)
+                    and r.get('wdth') == wdth), None)
+        fw = (rec or {}).get('features', {}).get('weight')
+        best = dict(face=dict(path=c['path'], index=c.get('index'),
+                              record=dict(features=dict(weight=fw))))
+        if grp:
+            sol['groups'][g]['distortions'] = classify(grp, sol['lines'], best,
+                                                       sol['groups'][g].get('features'))
     svg = build(sol, chosen, artwork, workdir, title)
     open(out, 'w').write(svg)
     print(f'-> {out}  ({len(svg)/1024:.0f}KB)')
